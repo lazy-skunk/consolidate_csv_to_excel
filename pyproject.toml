@@ -5,7 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "consolidate_csv_to_excel"
 version = "0.1.0"
-# dependencies = []
+dependencies = [
+  "PyYAML"
+]
 requires-python = ">= 3.12"
 authors = [
   {name = "lazy_skunk"}
@@ -24,6 +26,7 @@ dev = [
   "flake8",
   "isort",
   "mypy",
+  "types-PyYAML",
 ]
 
 [tool.pytest.ini_options]
