@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "consolidate_csv_to_excel"
+version = "0.1.0"
+# dependencies = []
+requires-python = ">= 3.12"
+authors = [
+  {name = "lazy_skunk"}
+]
+maintainers = [
+  {name = "lazy_skunk"}
+]
+description = "consolidate_csv_to_excel."
+readme = "README.md"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "black",
+  "flake8",
+  "isort",
+  "mypy",
+]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src --cov-config=.coveragerc --cov-report=html"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 79
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+# Flake8 cannot be configured via pyproject.toml
