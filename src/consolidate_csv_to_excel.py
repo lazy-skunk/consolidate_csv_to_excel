@@ -83,6 +83,21 @@ class CSVConsolidator:
                 config = yaml.safe_load(file)
                 return config.get("targets", [])
 
+    def _validate_targets(
+        self, log_directory: str, targets: List[str]
+    ) -> None:
+        for target in targets:
+            if not any(
+                target in folder for folder in os.listdir(log_directory)
+            ):
+                error_message = (
+                    f"No folder matching target '{target}' was found"
+                    f" in the log directory '{log_directory}'."
+                    " Processing will be aborted."
+                )
+                self._logger.error(error_message)
+                raise ValueError(error_message)
+
     def _determine_file_name_suffix(self, targets: List[str]) -> str:
         if len(sys.argv) > 2:
             return "_".join(targets)
@@ -182,8 +197,7 @@ class CSVConsolidator:
 
         date = self._get_input_date_or_yesterday()
         targets = self._get_targets_from_args_or_config()
-        self._logger.info(f"date: {date}")
-        self._logger.info(f"targets: {targets}")
+        self._validate_targets(self._LOG_FOLDER_PATH, targets)
 
         file_name_suffix = self._determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
