@@ -5,3 +5,5 @@ my_venv
 __pycache__
 .coverage
 my_note.txt
+log
+output
