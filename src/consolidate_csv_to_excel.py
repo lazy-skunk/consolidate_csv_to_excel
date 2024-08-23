@@ -105,6 +105,14 @@ class CSVConsolidator:
             return "config"
 
     def _create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
+        if os.path.exists(excel_path):
+            error_message = (
+                f"Excel file '{excel_path}' already exists."
+                "Processing will be aborted."
+            )
+            self._logger.error(error_message)
+            raise FileExistsError(error_message)
+
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
             pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
                 writer, sheet_name="SENTINEL_SHEET", index=False, header=False
