@@ -42,8 +42,8 @@ class CustomLogger:
 
 class CSVConsolidator:
     _DATE_FORMAT = "%Y%m%d"
-    _LOG_FOLDER_PATH = os.path.join("test_dir_1", "test_dir_2")
-    _CONFIG_FILE_PATH = os.path.join("src", "config.yml")
+    _LOG_FOLDER_PATH = os.path.join("log_directory")
+    _CONFIG_FILE_PATH = os.path.join("config", "config.yml")
     _EXCEL_FOLDER_PATH = os.path.join("output", "excel")
 
     def __init__(self) -> None:
@@ -220,6 +220,6 @@ class CSVConsolidator:
         self._logger.info("Process completed.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     consolidator = CSVConsolidator()
     consolidator.main()
