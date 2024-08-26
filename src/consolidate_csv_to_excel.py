@@ -78,29 +78,30 @@ class CSVConsolidator:
             yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
             return yesterday.strftime(self._DATE_FORMAT)
 
-    def _get_targets_from_args_or_config(self) -> List[str]:
-        TARGET = 2
-        if len(sys.argv) > 2:
-            return sys.argv[TARGET].split(",")
-        else:
-            with open(self._CONFIG_FILE_PATH, "r") as file:
-                config = yaml.safe_load(file)
-                return config.get("targets", [])
-
-    def _validate_targets(
-        self, log_directory: str, targets: List[str]
-    ) -> None:
+    def _validate_targets(self, targets: List[str]) -> None:
         for target in targets:
             if not any(
                 folder.startswith(target)
-                for folder in os.listdir(log_directory)
+                for folder in os.listdir(self._LOG_FOLDER_PATH)
             ):
                 self._logger.error(
                     f"No folder starting with target '{target}' was found"
-                    f" in the log directory '{log_directory}'."
+                    f" in the log directory '{self._LOG_FOLDER_PATH}'."
                     " Processing will be aborted."
                 )
                 sys.exit(1)
+
+    def _get_targets_from_args_or_config(self) -> List[str]:
+        TARGET = 2
+        if len(sys.argv) > 2:
+            targets = sys.argv[TARGET].split(",")
+        else:
+            with open(self._CONFIG_FILE_PATH, "r") as file:
+                config = yaml.safe_load(file)
+                targets = config.get("targets", [])
+
+        self._validate_targets(targets)
+        return targets
 
     def _create_output_folder_for_excel(self, date: str) -> None:
         date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
@@ -240,7 +241,6 @@ class CSVConsolidator:
 
         date = self._get_input_date_or_yesterday()
         targets = self._get_targets_from_args_or_config()
-        self._validate_targets(self._LOG_FOLDER_PATH, targets)
 
         self._create_output_folder_for_excel(date)
         file_name_suffix = self._determine_file_name_suffix(targets)
