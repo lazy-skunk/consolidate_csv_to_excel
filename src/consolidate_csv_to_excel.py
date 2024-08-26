@@ -18,6 +18,8 @@ class CustomLogger:
         log_file_path: str = _LOG_FILE_PATH,
         log_level: int = logging.INFO,
     ) -> None:
+        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
 
