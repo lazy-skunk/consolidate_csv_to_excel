@@ -138,9 +138,15 @@ class CSVConsolidator:
     def _copy_csv_to_excel(
         self, writer: pd.ExcelWriter, csv_path: str, host_name: str
     ) -> None:
-        df = pd.read_csv(csv_path)
-        df.to_excel(writer, sheet_name=host_name, index=False)
-        self._logger.info(f"Added '{host_name}' sheet from file: {csv_path}.")
+        try:
+            df = pd.read_csv(csv_path)
+            df.to_excel(writer, sheet_name=host_name, index=False)
+            self._logger.info(
+                f"Added '{host_name}' sheet from file: {csv_path}."
+            )
+        except Exception as e:
+            self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
+            self._logger.info(f"Skipping {host_name} sheet due to error.")
 
     def _create_no_data_sheet_to_excel(
         self, writer: pd.ExcelWriter, host_name: str
