@@ -50,6 +50,7 @@ class CSVConsolidator:
         self._logger = CustomLogger().get_logger
         self._processed_count = 0
         self._failed_count = 0
+        self._failed_hosts: List[str] = []
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
@@ -159,6 +160,7 @@ class CSVConsolidator:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
             self._logger.info(f"Skipping {host_name} sheet due to error.")
             self._failed_count += 1
+            self._failed_hosts.append(host_name)
 
     def _create_no_data_sheet_to_excel(
         self, writer: pd.ExcelWriter, host_name: str
@@ -222,13 +224,16 @@ class CSVConsolidator:
     def _log_summary(self) -> None:
         if self._failed_count > 0:
             self._logger.warning(
-                f"{self._processed_count} 件の処理に成功。"
-                f"{self._failed_count} 件の処理に失敗。"
+                f"Processing Summary: {self._processed_count} succeeded,"
+                f" {self._failed_count} failed."
+            )
+            self._logger.warning(
+                f"Failed hosts: {', '.join(self._failed_hosts)}"
             )
         else:
             self._logger.info(
-                f"{self._processed_count} 件の処理に成功。"
-                f"{self._failed_count} 件の処理に失敗。"
+                f"Processing Summary: {self._processed_count} succeeded,"
+                f" {self._failed_count} failed."
             )
 
     def main(self) -> None:
