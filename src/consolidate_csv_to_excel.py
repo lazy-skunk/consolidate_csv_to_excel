@@ -98,14 +98,12 @@ class CSVConsolidator:
                 self._logger.error(error_message)
                 raise ValueError(error_message)
 
-    def _create_date_folder(self, date: str) -> str:
+    def _create_output_folder_for_excel(self, date: str) -> None:
         date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
 
         if not os.path.exists(date_folder):
             os.makedirs(date_folder)
             self._logger.info(f"Created directory: {date_folder}")
-
-        return date_folder
 
     def _determine_file_name_suffix(self, targets: List[str]) -> str:
         if len(sys.argv) > 2:
@@ -222,7 +220,7 @@ class CSVConsolidator:
         targets = self._get_targets_from_args_or_config()
         self._validate_targets(self._LOG_FOLDER_PATH, targets)
 
-        self._create_date_folder(date)
+        self._create_output_folder_for_excel(date)
         file_name_suffix = self._determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
         excel_path = os.path.join(self._EXCEL_FOLDER_PATH, date, excel_name)
