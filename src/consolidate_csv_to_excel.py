@@ -98,6 +98,15 @@ class CSVConsolidator:
                 self._logger.error(error_message)
                 raise ValueError(error_message)
 
+    def _create_date_folder(self, date: str) -> str:
+        date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
+
+        if not os.path.exists(date_folder):
+            os.makedirs(date_folder)
+            self._logger.info(f"Created directory: {date_folder}")
+
+        return date_folder
+
     def _determine_file_name_suffix(self, targets: List[str]) -> str:
         if len(sys.argv) > 2:
             return "_".join(targets)
@@ -108,7 +117,7 @@ class CSVConsolidator:
         if os.path.exists(excel_path):
             error_message = (
                 f"Excel file '{excel_path}' already exists."
-                "Processing will be aborted."
+                " Processing will be aborted."
             )
             self._logger.error(error_message)
             raise FileExistsError(error_message)
@@ -213,9 +222,10 @@ class CSVConsolidator:
         targets = self._get_targets_from_args_or_config()
         self._validate_targets(self._LOG_FOLDER_PATH, targets)
 
+        self._create_date_folder(date)
         file_name_suffix = self._determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
-        excel_path = os.path.join(self._EXCEL_FOLDER_PATH, excel_name)
+        excel_path = os.path.join(self._EXCEL_FOLDER_PATH, date, excel_name)
 
         self._create_excel_with_sentinel_sheet(excel_path)
         self._search_and_append_csv_to_excel(
