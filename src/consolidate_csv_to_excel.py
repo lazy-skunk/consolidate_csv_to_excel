@@ -88,10 +88,11 @@ class CSVConsolidator:
     ) -> None:
         for target in targets:
             if not any(
-                target in folder for folder in os.listdir(log_directory)
+                folder.startswith(target)
+                for folder in os.listdir(log_directory)
             ):
                 error_message = (
-                    f"No folder matching target '{target}' was found"
+                    f"No folder starting with target '{target}' was found"
                     f" in the log directory '{log_directory}'."
                     " Processing will be aborted."
                 )
@@ -181,10 +182,10 @@ class CSVConsolidator:
         else:
             self._create_no_data_sheet_to_excel(writer, host_name)
 
-    def _folder_name_includes_target_name(
+    def _folder_name_startswith_target_name(
         self, host_folder: str, targets: List[str]
     ) -> bool:
-        return any(target in host_folder for target in targets)
+        return any(host_folder.startswith(target) for target in targets)
 
     def _search_and_append_csv_to_excel(
         self,
@@ -195,7 +196,7 @@ class CSVConsolidator:
     ) -> None:
         with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
             for host_folder in os.listdir(log_directory):
-                if not self._folder_name_includes_target_name(
+                if not self._folder_name_startswith_target_name(
                     host_folder, targets
                 ):
                     continue
