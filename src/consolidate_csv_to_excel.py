@@ -48,6 +48,8 @@ class CSVConsolidator:
 
     def __init__(self) -> None:
         self._logger = CustomLogger().get_logger
+        self._processed_count = 0
+        self._failed_count = 0
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
@@ -152,9 +154,11 @@ class CSVConsolidator:
             self._logger.info(
                 f"Added '{host_name}' sheet from file: {csv_path}."
             )
+            self._processed_count += 1
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
             self._logger.info(f"Skipping {host_name} sheet due to error.")
+            self._failed_count += 1
 
     def _create_no_data_sheet_to_excel(
         self, writer: pd.ExcelWriter, host_name: str
@@ -163,6 +167,7 @@ class CSVConsolidator:
         df_for_not_found.to_excel(
             writer, sheet_name=host_name, index=False, header=False
         )
+        self._processed_count += 1
 
         GRAY = "C0C0C0"
         writer.sheets[host_name].sheet_properties.tabColor = GRAY
@@ -214,6 +219,18 @@ class CSVConsolidator:
         else:
             self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
 
+    def _log_summary(self) -> None:
+        if self._failed_count > 0:
+            self._logger.warning(
+                f"{self._processed_count} 件の処理に成功。"
+                f"{self._failed_count} 件の処理に失敗。"
+            )
+        else:
+            self._logger.info(
+                f"{self._processed_count} 件の処理に成功。"
+                f"{self._failed_count} 件の処理に失敗。"
+            )
+
     def main(self) -> None:
         self._logger.info("Process started.")
 
@@ -232,6 +249,7 @@ class CSVConsolidator:
         )
         self._remove_sentinel_sheet(excel_path)
 
+        self._log_summary()
         self._logger.info("Process completed.")
 
 
