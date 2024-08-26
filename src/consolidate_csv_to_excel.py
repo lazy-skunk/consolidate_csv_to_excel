@@ -69,12 +69,11 @@ class CSVConsolidator:
             if self._is_valid_date(input_date):
                 return input_date
             else:
-                error_message = (
+                self._logger.error(
                     f"Invalid date specified: {input_date}."
                     " Processing will be aborted."
                 )
-                self._logger.error(error_message)
-                raise ValueError(error_message)
+                sys.exit(1)
         else:
             yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
             return yesterday.strftime(self._DATE_FORMAT)
@@ -96,13 +95,12 @@ class CSVConsolidator:
                 folder.startswith(target)
                 for folder in os.listdir(log_directory)
             ):
-                error_message = (
+                self._logger.error(
                     f"No folder starting with target '{target}' was found"
                     f" in the log directory '{log_directory}'."
                     " Processing will be aborted."
                 )
-                self._logger.error(error_message)
-                raise ValueError(error_message)
+                sys.exit(1)
 
     def _create_output_folder_for_excel(self, date: str) -> None:
         date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
@@ -119,11 +117,10 @@ class CSVConsolidator:
 
     def _create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
         if os.path.exists(excel_path):
-            warning_message = (
+            self._logger.warning(
                 f"Excel file '{excel_path}' already exists."
                 " Processing will be aborted."
             )
-            self._logger.warning(warning_message)
             sys.exit(1)
 
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
