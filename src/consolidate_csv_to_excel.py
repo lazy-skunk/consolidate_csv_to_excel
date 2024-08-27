@@ -50,7 +50,8 @@ class CSVConsolidator:
 
     def __init__(self) -> None:
         self._logger = CustomLogger().get_logger
-        self._processed_count = 0
+        self._copied_count = 0
+        self._no_data_count = 0
         self._failed_count = 0
         self._failed_hosts: List[str] = []
 
@@ -155,7 +156,7 @@ class CSVConsolidator:
             self._logger.info(
                 f"Added '{host_name}' sheet from file: {csv_path}."
             )
-            self._processed_count += 1
+            self._copied_count += 1
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
             self._logger.info(f"Skipping {host_name} sheet due to error.")
@@ -169,7 +170,7 @@ class CSVConsolidator:
         df_for_not_found.to_excel(
             writer, sheet_name=host_name, index=False, header=False
         )
-        self._processed_count += 1
+        self._no_data_count += 1
 
         GRAY = "C0C0C0"
         writer.sheets[host_name].sheet_properties.tabColor = GRAY
@@ -222,19 +223,18 @@ class CSVConsolidator:
             self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
 
     def _log_summary(self) -> None:
+        common_message = (
+            f"Processing Summary: {self._copied_count} copied,"
+            f" {self._no_data_count} no data sheet created,"
+            f" {self._failed_count} failed."
+        )
         if self._failed_count > 0:
-            self._logger.warning(
-                f"Processing Summary: {self._processed_count} succeeded,"
-                f" {self._failed_count} failed."
-            )
+            self._logger.warning(common_message)
             self._logger.warning(
                 f"Failed hosts: {', '.join(self._failed_hosts)}"
             )
         else:
-            self._logger.info(
-                f"Processing Summary: {self._processed_count} succeeded,"
-                f" {self._failed_count} failed."
-            )
+            self._logger.info(common_message)
 
     def main(self) -> None:
         self._logger.info("Process started.")
