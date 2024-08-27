@@ -7,11 +7,11 @@ import pandas as pd
 _BASE_DATE = datetime.now()
 _data = []
 
-for i in range(25000):
+for i in range(10000):
     date_a = _BASE_DATE - timedelta(seconds=i)
     date_b = _BASE_DATE + timedelta(seconds=i)
 
-    time_difference = (date_b - date_a).total_seconds()
+    time_difference = int((date_b - date_a).total_seconds())
 
     random_value = random.choice([None, True])
     json_list = []
