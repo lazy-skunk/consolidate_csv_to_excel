@@ -7,7 +7,7 @@ import pandas as pd
 _BASE_DATE = datetime.now()
 _data = []
 
-for i in range(50000):
+for i in range(25000):
     date_a = _BASE_DATE - timedelta(seconds=i)
     date_b = _BASE_DATE + timedelta(seconds=i)
 
