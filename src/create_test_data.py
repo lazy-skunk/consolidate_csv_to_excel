@@ -19,7 +19,7 @@ for i in range(100000):
         json_data = {
             "date_a": date_a.isoformat(),
             "date_b": date_b.isoformat(),
-            "time_difference": time_difference,
+            "time_difference": f"{time_difference}s",
             "random_key": random_value,
         }
         json_list.append(json_data)
