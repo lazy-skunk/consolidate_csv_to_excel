@@ -30,7 +30,7 @@ for i in range(25000):
         [
             date_a.strftime("%Y-%m-%d %H:%M:%S"),
             date_b.strftime("%Y-%m-%d %H:%M:%S"),
-            time_difference,
+            f"{time_difference}s",
             stringified_json,
         ]
     )
