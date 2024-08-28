@@ -117,7 +117,7 @@ class CSVConsolidator:
 
         threshold = config.get("time_difference_threshold_seconds")
 
-        if isinstance(threshold, (int)):
+        if isinstance(threshold, int):
             return threshold
         else:
             self._logger.error(
