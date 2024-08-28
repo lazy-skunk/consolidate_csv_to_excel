@@ -314,7 +314,7 @@ class CSVConsolidator:
                 )
         return False
 
-    def _highlight_cells_and_sheets_by_criteria(
+    def _highlight_cells_and_sheet_tabs_by_criteria(
         self, excel_path: str, threshold: int
     ) -> None:
         self._logger.info("Analyze and highlight started.")
@@ -382,7 +382,7 @@ class CSVConsolidator:
         self._search_and_append_csv_to_excel(date, targets, excel_path)
         self._remove_sentinel_sheet(excel_path)
 
-        self._highlight_cells_and_sheets_by_criteria(
+        self._highlight_cells_and_sheet_tabs_by_criteria(
             excel_path, processing_time_threshold
         )
 
