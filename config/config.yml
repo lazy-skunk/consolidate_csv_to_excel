@@ -1,4 +1,4 @@
 targets:
   - abc01
   - def0
-time_difference_threshold_seconds: 120
+processing_time_threshold_seconds: 120

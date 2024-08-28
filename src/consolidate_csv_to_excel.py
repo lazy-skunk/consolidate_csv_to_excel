@@ -111,17 +111,17 @@ class CSVConsolidator:
         self._validate_targets(targets)
         return targets
 
-    def _get_time_difference_threshold(self) -> int:
+    def _get_processing_time_threshold(self) -> int:
         with open(self._CONFIG_FILE_PATH, "r") as file:
             config = yaml.safe_load(file)
 
-        threshold = config.get("time_difference_threshold_seconds")
+        threshold = config.get("processing_time_threshold_seconds")
 
         if isinstance(threshold, int):
             return threshold
         else:
             self._logger.error(
-                "Invalid value for 'time_difference_threshold_seconds'"
+                "Invalid value for 'processing_time_threshold_seconds'"
                 " in config file. Please provide a valid integer value."
                 " Processing will be aborted."
             )
@@ -248,9 +248,9 @@ class CSVConsolidator:
         cell.fill = pattern_fill
 
     def _calculate_color_based_on_excess_ratio(
-        self, time_diff_seconds: int, threshold: int
+        self, processing_time_seconds: int, threshold: int
     ) -> str:
-        excess_ratio = (time_diff_seconds - threshold) / threshold
+        excess_ratio = (processing_time_seconds - threshold) / threshold
         clamped_excess_ratio = min(excess_ratio, 1)
 
         _MAX_GREEN_VALUE = 255
@@ -265,30 +265,30 @@ class CSVConsolidator:
 
         return color_code
 
-    def _check_and_highlight_time_difference(
+    def _check_and_highlight_processing_time(
         self,
         row: Tuple[Cell, ...],
-        time_difference_column: int,
+        processing_time_column: int,
         threshold: int,
     ) -> bool:
-        time_difference_cell = row[time_difference_column]
-        time_difference_value = time_difference_cell.value
+        processing_time_cell = row[processing_time_column]
+        processing_time_value = processing_time_cell.value
 
-        if time_difference_value:
+        if processing_time_value:
             try:
-                time_difference_seconds = int(
-                    time_difference_value.rstrip("s")
+                processing_time_seconds = int(
+                    processing_time_value.rstrip("s")
                 )
 
-                if time_difference_seconds >= threshold:
+                if processing_time_seconds >= threshold:
                     color_code = self._calculate_color_based_on_excess_ratio(
-                        time_difference_seconds, threshold
+                        processing_time_seconds, threshold
                     )
-                    self._highlight_cell(time_difference_cell, color_code)
+                    self._highlight_cell(processing_time_cell, color_code)
                     return True
             except ValueError:
                 self._logger.warning(
-                    f"Invalid time difference value: {time_difference_value}"
+                    f"Invalid processing time value: {processing_time_value}"
                 )
 
         return False
@@ -323,7 +323,7 @@ class CSVConsolidator:
         _HEADER_ROW = 1
         _DATA_START_ROW = _HEADER_ROW + 1
         _ZERO_BASED_INDEX_OFFSET = 1
-        _TIME_DIFFERENCE_COLUMN = 3 - _ZERO_BASED_INDEX_OFFSET
+        _PROCESSING_TIME_COLUMN = 3 - _ZERO_BASED_INDEX_OFFSET
         _JSON_COLUMN = 4 - _ZERO_BASED_INDEX_OFFSET
         _LIGHT_YELLOW = "FFFF7F"
         total_sheets = len(workbook.sheetnames)
@@ -335,8 +335,8 @@ class CSVConsolidator:
             has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=_DATA_START_ROW):
-                if self._check_and_highlight_time_difference(
-                    row, _TIME_DIFFERENCE_COLUMN, threshold
+                if self._check_and_highlight_processing_time(
+                    row, _PROCESSING_TIME_COLUMN, threshold
                 ) or self._check_and_highlight_json_key(row, _JSON_COLUMN):
                     has_highlighted_cell = True
 
@@ -371,7 +371,7 @@ class CSVConsolidator:
 
         date = self._get_input_date_or_yesterday()
         targets = self._get_targets_from_args_or_config()
-        time_difference_threshold = self._get_time_difference_threshold()
+        processing_time_threshold = self._get_processing_time_threshold()
 
         file_name_suffix = self._determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
@@ -383,7 +383,7 @@ class CSVConsolidator:
         self._remove_sentinel_sheet(excel_path)
 
         self._highlight_cells_and_sheets_by_criteria(
-            excel_path, time_difference_threshold
+            excel_path, processing_time_threshold
         )
 
         self._log_summary()
