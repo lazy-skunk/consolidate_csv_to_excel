@@ -1,14 +1,16 @@
 import datetime
+import json
 import logging
 import os
 import sys
 from logging import Logger
 from logging.handlers import RotatingFileHandler
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 import yaml
 from openpyxl import load_workbook
+from openpyxl.cell import Cell
 from openpyxl.styles import PatternFill
 
 
@@ -22,8 +24,6 @@ class CustomLogger:
         max_file_size: int = 3 * 1024 * 1024,
         backup_count: int = 2,
     ) -> None:
-        os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
-
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
 
@@ -105,7 +105,8 @@ class CSVConsolidator:
         else:
             with open(self._CONFIG_FILE_PATH, "r") as file:
                 config = yaml.safe_load(file)
-                targets = config.get("targets", [])
+
+            targets = config.get("targets", [])
 
         self._validate_targets(targets)
         return targets
@@ -113,17 +114,18 @@ class CSVConsolidator:
     def _get_time_difference_threshold(self) -> int:
         with open(self._CONFIG_FILE_PATH, "r") as file:
             config = yaml.safe_load(file)
-            threshold = config.get("time_difference_threshold_seconds")
 
-            if isinstance(threshold, (int)):
-                return threshold
-            else:
-                self._logger.error(
-                    "Invalid value for 'time_difference_threshold_seconds'"
-                    " in config file. Please provide a valid integer value."
-                    " Processing will be aborted."
-                )
-                sys.exit(1)
+        threshold = config.get("time_difference_threshold_seconds")
+
+        if isinstance(threshold, (int)):
+            return threshold
+        else:
+            self._logger.error(
+                "Invalid value for 'time_difference_threshold_seconds'"
+                " in config file. Please provide a valid integer value."
+                " Processing will be aborted."
+            )
+            sys.exit(1)
 
     def _create_output_folder_for_excel(self, date: str) -> None:
         date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
@@ -150,6 +152,7 @@ class CSVConsolidator:
             pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
                 writer, sheet_name="SENTINEL_SHEET", index=False, header=False
             )
+
         self._logger.info(
             f"Initialized {excel_path} with a sentinel sheet"
             " for further writing."
@@ -191,7 +194,6 @@ class CSVConsolidator:
         df_for_not_found.to_excel(
             writer, sheet_name=host_name, index=False, header=False
         )
-        self._no_data_count += 1
 
         _GRAY = "808080"
         writer.sheets[host_name].sheet_properties.tabColor = _GRAY
@@ -199,6 +201,7 @@ class CSVConsolidator:
         self._logger.info(
             f"Wrote 'No CSV file found.' in cell A1 of '{host_name}' sheet."
         )
+        self._no_data_count += 1
 
     def _add_sheet_for_target(
         self, writer: pd.ExcelWriter, host_folder_path: str, date: str
@@ -211,26 +214,22 @@ class CSVConsolidator:
         else:
             self._create_no_data_sheet_to_excel(writer, host_name)
 
-    def _folder_name_startswith_target_name(
-        self, host_folder: str, targets: List[str]
-    ) -> bool:
-        return any(host_folder.startswith(target) for target in targets)
-
     def _search_and_append_csv_to_excel(
         self,
-        log_directory: str,
         date: str,
         targets: List[str],
         excel_path: str,
     ) -> None:
         with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
-            for host_folder in os.listdir(log_directory):
-                if not self._folder_name_startswith_target_name(
-                    host_folder, targets
+            for host_folder_name in os.listdir(self._LOG_FOLDER_PATH):
+                if not any(
+                    host_folder_name.startswith(target) for target in targets
                 ):
                     continue
 
-                host_folder_path = os.path.join(log_directory, host_folder)
+                host_folder_path = os.path.join(
+                    self._LOG_FOLDER_PATH, host_folder_name
+                )
                 if os.path.isdir(host_folder_path):
                     self._add_sheet_for_target(writer, host_folder_path, date)
 
@@ -240,41 +239,114 @@ class CSVConsolidator:
             del workbook["SENTINEL_SHEET"]
             workbook.save(excel_path)
             self._logger.info(f"Removed SENTINEL_SHEET from {excel_path}.")
-        else:
-            self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
+            return
 
-    def _highlight_time_differences_over_threshold(
+        self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
+
+    def _highlight_cell(self, cell: Cell, color_code: str) -> None:
+        pattern_fill = PatternFill(start_color=color_code, fill_type="solid")
+        cell.fill = pattern_fill
+
+    def _calculate_color_based_on_excess_ratio(
+        self, time_diff_seconds: int, threshold: int
+    ) -> str:
+        excess_ratio = (time_diff_seconds - threshold) / threshold
+        clamped_excess_ratio = min(excess_ratio, 1)
+
+        _MAX_GREEN_VALUE = 255
+        _MIN_GREEN_VALUE = _MAX_GREEN_VALUE / 2
+        green_value = int(
+            _MAX_GREEN_VALUE
+            - (_MAX_GREEN_VALUE - _MIN_GREEN_VALUE) * clamped_excess_ratio
+        )
+
+        green_hex_value = f"{green_value:02X}"
+        color_code = f"FF{green_hex_value}7F"
+
+        return color_code
+
+    def _check_and_highlight_time_difference(
+        self,
+        row: Tuple[Cell, ...],
+        time_difference_column: int,
+        threshold: int,
+    ) -> bool:
+        time_difference_cell = row[time_difference_column]
+        time_difference_value = time_difference_cell.value
+
+        if time_difference_value:
+            try:
+                time_difference_seconds = int(
+                    time_difference_value.rstrip("s")
+                )
+
+                if time_difference_seconds >= threshold:
+                    color_code = self._calculate_color_based_on_excess_ratio(
+                        time_difference_seconds, threshold
+                    )
+                    self._highlight_cell(time_difference_cell, color_code)
+                    return True
+            except ValueError:
+                self._logger.warning(
+                    f"Invalid time difference value: {time_difference_value}"
+                )
+
+        return False
+
+    def _check_and_highlight_json_key(
+        self,
+        row: tuple[Cell, ...],
+        json_column: int,
+    ) -> bool:
+        json_cell = row[json_column]
+        json_value = json_cell.value
+
+        _LIGHT_YELLOW = "FFFF7F"
+        if json_value:
+            try:
+                json_data = json.loads(json_value)
+                if any(item.get("random_key") is True for item in json_data):
+                    self._highlight_cell(json_cell, _LIGHT_YELLOW)
+                    return True
+            except json.JSONDecodeError:
+                self._logger.warning(
+                    f"Invalid JSON format found: {json_value}"
+                )
+        return False
+
+    def _highlight_cells_and_sheets_by_criteria(
         self, excel_path: str, threshold: int
     ) -> None:
+        self._logger.info("Analyze and highlight started.")
+        workbook = load_workbook(excel_path)
+
         _HEADER_ROW = 1
         _DATA_START_ROW = _HEADER_ROW + 1
         _ZERO_BASED_INDEX_OFFSET = 1
         _TIME_DIFFERENCE_COLUMN = 3 - _ZERO_BASED_INDEX_OFFSET
-
-        _TULIP_COLOR_WITH_TRANSPARENT = "FFFF8888"
-        pattern_fill = PatternFill(
-            start_color=_TULIP_COLOR_WITH_TRANSPARENT, fill_type="solid"
-        )
-
-        self._logger.info(
-            f"Analyze and highlight started for file: {excel_path}"
-            f" with threshold: {threshold} seconds."
-        )
-
-        workbook = load_workbook(excel_path)
-
-        for sheet_name in workbook.sheetnames:
+        _JSON_COLUMN = 4 - _ZERO_BASED_INDEX_OFFSET
+        _LIGHT_YELLOW = "FFFF7F"
+        total_sheets = len(workbook.sheetnames)
+        for current_sheet_number, sheet_name in enumerate(
+            workbook.sheetnames, start=1
+        ):
+            self._logger.info(f"Processing sheet: {sheet_name}")
             sheet = workbook[sheet_name]
+            has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=_DATA_START_ROW):
-                time_diff_cell = row[_TIME_DIFFERENCE_COLUMN]
-                time_diff_value = time_diff_cell.value
+                if self._check_and_highlight_time_difference(
+                    row, _TIME_DIFFERENCE_COLUMN, threshold
+                ) or self._check_and_highlight_json_key(row, _JSON_COLUMN):
+                    has_highlighted_cell = True
 
-                if (
-                    time_diff_value
-                    and int(time_diff_value.rstrip("s")) >= threshold
-                ):
-                    time_diff_cell.fill = pattern_fill
+            if has_highlighted_cell:
+                sheet.sheet_properties.tabColor = _LIGHT_YELLOW
+
+            self._logger.info(
+                f"Completed processing sheet: {sheet_name}."
+                f" ({current_sheet_number}/{total_sheets})"
+            )
 
         workbook.save(excel_path)
         workbook.close()
@@ -299,21 +371,20 @@ class CSVConsolidator:
 
         date = self._get_input_date_or_yesterday()
         targets = self._get_targets_from_args_or_config()
-        threshold = self._get_time_difference_threshold()
-
-        self._create_output_folder_for_excel(date)
+        time_difference_threshold = self._get_time_difference_threshold()
 
         file_name_suffix = self._determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
         excel_path = os.path.join(self._EXCEL_FOLDER_PATH, date, excel_name)
 
+        self._create_output_folder_for_excel(date)
         self._create_excel_with_sentinel_sheet(excel_path)
-        self._search_and_append_csv_to_excel(
-            self._LOG_FOLDER_PATH, date, targets, excel_path
-        )
+        self._search_and_append_csv_to_excel(date, targets, excel_path)
         self._remove_sentinel_sheet(excel_path)
 
-        self._highlight_time_differences_over_threshold(excel_path, threshold)
+        self._highlight_cells_and_sheets_by_criteria(
+            excel_path, time_difference_threshold
+        )
 
         self._log_summary()
         self._logger.info("Process completed.")
