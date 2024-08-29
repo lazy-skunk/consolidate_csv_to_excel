@@ -60,6 +60,7 @@ class CSVConsolidator:
         self._no_data_count = 0
         self._failed_count = 0
         self._failed_hosts: List[str] = []
+        self._hosts_to_check: set[str] = set()
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
@@ -327,24 +328,25 @@ class CSVConsolidator:
         _JSON_COLUMN = 4 - _ZERO_BASED_INDEX_OFFSET
         _LIGHT_YELLOW = "FFFF7F"
         total_sheets = len(workbook.sheetnames)
-        for current_sheet_number, sheet_name in enumerate(
+        for current_sheet_number, host_name in enumerate(
             workbook.sheetnames, start=1
         ):
-            self._logger.info(f"Processing sheet: {sheet_name}")
-            sheet = workbook[sheet_name]
+            self._logger.info(f"Processing sheet: {host_name}")
+            sheet = workbook[host_name]
             has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=_DATA_START_ROW):
                 if self._check_and_highlight_processing_time(
                     row, _PROCESSING_TIME_COLUMN, threshold
                 ) or self._check_and_highlight_json_key(row, _JSON_COLUMN):
+                    self._hosts_to_check.add(host_name)
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
                 sheet.sheet_properties.tabColor = _LIGHT_YELLOW
 
             self._logger.info(
-                f"Completed processing sheet: {sheet_name}."
+                f"Completed processing sheet: {host_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
 
@@ -353,18 +355,22 @@ class CSVConsolidator:
         self._logger.info("Analyze and highlight completed for all sheets.")
 
     def _log_summary(self) -> None:
-        common_message = (
+        self._logger.info(
             f"Processing Summary: {self._copied_count} copied,"
             f" {self._no_data_count} no data sheet created,"
             f" {self._failed_count} failed."
         )
-        if self._failed_count > 0:
-            self._logger.warning(common_message)
+
+        if self._hosts_to_check:
             self._logger.warning(
+                f"Hosts where anomalies are detected:"
+                f" {', '.join(self._hosts_to_check)}"
+            )
+
+        if self._failed_count > 0:
+            self._logger.critical(
                 f"Failed hosts: {', '.join(self._failed_hosts)}"
             )
-        else:
-            self._logger.info(common_message)
 
     def main(self) -> None:
         self._logger.info("Process started.")
