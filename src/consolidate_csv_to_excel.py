@@ -69,13 +69,42 @@ class CSVConsolidator:
         except ValueError:
             return False
 
-    def _get_input_date_or_yesterday(self) -> str:
+    def _generate_date_range(
+        self, start_date_str: str, end_date_str: str
+    ) -> List[str]:
+        start_date = datetime.datetime.strptime(
+            start_date_str, self._DATE_FORMAT
+        )
+        end_date = datetime.datetime.strptime(end_date_str, self._DATE_FORMAT)
+
+        current_date = start_date
+        date_list = []
+        while current_date <= end_date:
+            date_list.append(current_date.strftime(self._DATE_FORMAT))
+            current_date += datetime.timedelta(days=1)
+
+        return date_list
+
+    def _get_input_date_or_yesterday(self) -> List[str]:
         DATE = 1
         if len(sys.argv) > 1:
             input_date = sys.argv[DATE]
-
-            if self._is_valid_date(input_date):
-                return input_date
+            if "-" in input_date:
+                start_date_str, end_date_str = input_date.split("-")
+                if self._is_valid_date(start_date_str) and self._is_valid_date(
+                    end_date_str
+                ):
+                    return self._generate_date_range(
+                        start_date_str, end_date_str
+                    )
+                else:
+                    self._logger.error(
+                        f"Invalid date range specified: {input_date}."
+                        " Processing will be aborted."
+                    )
+                    sys.exit(1)
+            elif self._is_valid_date(input_date):
+                return [input_date]
             else:
                 self._logger.error(
                     f"Invalid date specified: {input_date}."
@@ -84,7 +113,7 @@ class CSVConsolidator:
                 sys.exit(1)
         else:
             yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-            return yesterday.strftime(self._DATE_FORMAT)
+            return [yesterday.strftime(self._DATE_FORMAT)]
 
     def _validate_targets(self, targets: List[str]) -> None:
         for target in targets:
@@ -375,22 +404,25 @@ class CSVConsolidator:
     def main(self) -> None:
         self._logger.info("Process started.")
 
-        date = self._get_input_date_or_yesterday()
+        date_list = self._get_input_date_or_yesterday()
         targets = self._get_targets_from_args_or_config()
         processing_time_threshold = self._get_processing_time_threshold()
 
-        file_name_suffix = self._determine_file_name_suffix(targets)
-        excel_name = f"{date}_{file_name_suffix}.xlsx"
-        excel_path = os.path.join(self._EXCEL_FOLDER_PATH, date, excel_name)
+        for date in date_list:
+            file_name_suffix = self._determine_file_name_suffix(targets)
+            excel_name = f"{date}_{file_name_suffix}.xlsx"
+            excel_path = os.path.join(
+                self._EXCEL_FOLDER_PATH, date, excel_name
+            )
 
-        self._create_output_folder_for_excel(date)
-        self._create_excel_with_sentinel_sheet(excel_path)
-        self._search_and_append_csv_to_excel(date, targets, excel_path)
-        self._remove_sentinel_sheet(excel_path)
+            self._create_output_folder_for_excel(date)
+            self._create_excel_with_sentinel_sheet(excel_path)
+            self._search_and_append_csv_to_excel(date, targets, excel_path)
+            self._remove_sentinel_sheet(excel_path)
 
-        self._highlight_cells_and_sheet_tabs_by_criteria(
-            excel_path, processing_time_threshold
-        )
+            self._highlight_cells_and_sheet_tabs_by_criteria(
+                excel_path, processing_time_threshold
+            )
 
         self._log_summary()
         self._logger.info("Process completed.")
