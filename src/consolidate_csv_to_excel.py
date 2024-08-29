@@ -404,6 +404,7 @@ class CSVConsolidator:
 
     def _log_daily_summary(self) -> None:
         self._logger.info("Daily summary of processing:")
+
         for date, summary in self._daily_summaries.items():
             self._logger.info(
                 f"Date: {date} - Copied: {summary['copied']},"
@@ -411,16 +412,29 @@ class CSVConsolidator:
             )
 
             if summary.get("hosts_to_check"):
-                self._logger.warning(
-                    f"Date: {date} - hosts to check:"
-                    f" {', '.join(summary['hosts_to_check'])}"
-                )
+                hosts_to_check = summary["hosts_to_check"]
+                if isinstance(hosts_to_check, set):
+                    self._logger.warning(
+                        f"Date: {date} - hosts to check:"
+                        f" {', '.join(hosts_to_check)}"
+                    )
+                else:
+                    self._logger.warning(
+                        f"Date: {date} - hosts to check: {hosts_to_check}"
+                    )
 
-            if summary.get("failed"):
-                self._logger.error(
-                    f"Date: {date} - Failed: {summary['failed']},"
-                    f" Failed Hosts: {', '.join(summary['failed_hosts'])}"
-                )
+            if summary.get("failed") and summary.get("failed_hosts"):
+                failed_hosts = summary["failed_hosts"]
+                if isinstance(failed_hosts, list):
+                    self._logger.error(
+                        f"Date: {date} - Failed: {summary['failed']},"
+                        f" Failed Hosts: {', '.join(failed_hosts)}"
+                    )
+                else:
+                    self._logger.error(
+                        f"Date: {date} - Failed: {summary['failed']},"
+                        f" Failed Hosts: {failed_hosts}"
+                    )
 
     def main(self) -> None:
         self._logger.info("Process started.")
