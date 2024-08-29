@@ -5,7 +5,7 @@ import os
 import sys
 from logging import Logger
 from logging.handlers import RotatingFileHandler
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 import yaml
@@ -57,10 +57,13 @@ class CSVConsolidator:
     def __init__(self) -> None:
         self._logger = CustomLogger().get_logger
         self._copied_count = 0
-        self._no_data_count = 0
+        self._no_csv_count = 0
         self._failed_count = 0
         self._failed_hosts: List[str] = []
         self._hosts_to_check: set[str] = set()
+        self._daily_summaries: Dict[
+            str, Dict[str, int | List[str] | Set[str]]
+        ] = {}
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
@@ -171,12 +174,12 @@ class CSVConsolidator:
             return "config"
 
     def _create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
-        if os.path.exists(excel_path):
-            self._logger.warning(
-                f"Excel file '{excel_path}' already exists."
-                " Processing will be aborted."
-            )
-            sys.exit(1)
+        # if os.path.exists(excel_path):
+        #     self._logger.warning(
+        #         f"Excel file '{excel_path}' already exists."
+        #         " Processing will be aborted."
+        #     )
+        #     sys.exit(1)
 
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
             pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
@@ -217,7 +220,7 @@ class CSVConsolidator:
             self._failed_count += 1
             self._failed_hosts.append(host_name)
 
-    def _create_no_data_sheet_to_excel(
+    def _create_no_csv_sheet_to_excel(
         self, writer: pd.ExcelWriter, host_name: str
     ) -> None:
         df_for_not_found = pd.DataFrame({"A": ["No CSV file found."]})
@@ -231,7 +234,7 @@ class CSVConsolidator:
         self._logger.info(
             f"Wrote 'No CSV file found.' in cell A1 of '{host_name}' sheet."
         )
-        self._no_data_count += 1
+        self._no_csv_count += 1
 
     def _add_sheet_for_target(
         self, writer: pd.ExcelWriter, host_folder_path: str, date: str
@@ -242,7 +245,7 @@ class CSVConsolidator:
         if csv_file_path:
             self._copy_csv_to_excel(writer, csv_file_path, host_name)
         else:
-            self._create_no_data_sheet_to_excel(writer, host_name)
+            self._create_no_csv_sheet_to_excel(writer, host_name)
 
     def _search_and_append_csv_to_excel(
         self,
@@ -383,23 +386,41 @@ class CSVConsolidator:
         workbook.close()
         self._logger.info("Analyze and highlight completed for all sheets.")
 
-    def _log_summary(self) -> None:
-        self._logger.info(
-            f"Processing Summary: {self._copied_count} copied,"
-            f" {self._no_data_count} no data sheet created,"
-            f" {self._failed_count} failed."
-        )
+    def _save_daily_summary(self, date: str) -> None:
+        self._daily_summaries[date] = {
+            "copied": self._copied_count,
+            "no_csv": self._no_csv_count,
+            "failed": self._failed_count,
+            "failed_hosts": self._failed_hosts,
+            "hosts_to_check": self._hosts_to_check,
+        }
 
-        if self._hosts_to_check:
-            self._logger.warning(
-                f"Hosts where anomalies are detected:"
-                f" {', '.join(self._hosts_to_check)}"
+    def _reset_counters_and_collections(self) -> None:
+        self._copied_count = 0
+        self._no_csv_count = 0
+        self._failed_count = 0
+        self._failed_hosts = []
+        self._hosts_to_check = set()
+
+    def _log_daily_summary(self) -> None:
+        self._logger.info("Daily summary of processing:")
+        for date, summary in self._daily_summaries.items():
+            self._logger.info(
+                f"Date: {date} - Copied: {summary['copied']},"
+                f" No CSV: {summary['no_csv']}. "
             )
 
-        if self._failed_count > 0:
-            self._logger.critical(
-                f"Failed hosts: {', '.join(self._failed_hosts)}"
-            )
+            if summary.get("hosts_to_check"):
+                self._logger.warning(
+                    f"Date: {date} - hosts to check:"
+                    f" {', '.join(summary['hosts_to_check'])}"
+                )
+
+            if summary.get("failed"):
+                self._logger.error(
+                    f"Date: {date} - Failed: {summary['failed']},"
+                    f" Failed Hosts: {', '.join(summary['failed_hosts'])}"
+                )
 
     def main(self) -> None:
         self._logger.info("Process started.")
@@ -424,7 +445,10 @@ class CSVConsolidator:
                 excel_path, processing_time_threshold
             )
 
-        self._log_summary()
+            self._save_daily_summary(date)
+            self._reset_counters_and_collections()
+
+        self._log_daily_summary()
         self._logger.info("Process completed.")
 
 
