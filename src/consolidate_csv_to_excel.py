@@ -314,12 +314,19 @@ class CSVConsolidator:
         target_fullnames: List[str],
         excel_path: str,
     ) -> None:
+        total_targets = len(target_fullnames)
         with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
-            for target_name in target_fullnames:
+            for current_target_number, target_name in enumerate(
+                target_fullnames, start=1
+            ):
                 target_folder_path = os.path.join(
                     _TARGET_FOLDERS_BASE_PATH, target_name
                 )
                 self._add_sheet_for_target(writer, target_folder_path, date)
+                self._logger.info(
+                    f"Completed adding sheet: {target_name}."
+                    f" ({current_target_number}/{total_targets})"
+                )
 
     def remove_sentinel_sheet(self, excel_path: str) -> None:
         workbook = load_workbook(excel_path)
