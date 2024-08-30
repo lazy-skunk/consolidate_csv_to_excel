@@ -438,13 +438,20 @@ class ExcelAnalyzer:
             has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=DATA_START_ROW):
-                if self._check_and_highlight_processing_time(
-                    row, PROCESSING_TIME_COLUMN, threshold
-                ) or self._check_and_highlight_json_key(row, JSON_COLUMN):
-                    self._hosts_to_check.add(host_name)
+                processing_time_highlighted = (
+                    self._check_and_highlight_processing_time(
+                        row, PROCESSING_TIME_COLUMN, threshold
+                    )
+                )
+                json_key_highlighted = self._check_and_highlight_json_key(
+                    row, JSON_COLUMN
+                )
+
+                if processing_time_highlighted or json_key_highlighted:
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
+                self._hosts_to_check.add(host_name)
                 sheet.sheet_properties.tabColor = self._YELLOW
 
             self._logger.info(
