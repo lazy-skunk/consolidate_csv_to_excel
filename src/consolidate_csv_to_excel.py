@@ -469,13 +469,17 @@ class ExcelAnalyzer:
         other_sheets = []
 
         for sheet_name in workbook.sheetnames:
-            sheet_color = workbook[sheet_name].sheet_properties.tabColor.value
-            if sheet_color == self._YELLOW_WITH_TRANSPARENT:
-                yellow_sheets.append(sheet_name)
-            elif sheet_color == self._GRAY_WITH_TRANSPARENT:
-                gray_sheets.append(sheet_name)
-            else:
+            sheet_tab_color = workbook[sheet_name].sheet_properties.tabColor
+            if sheet_tab_color is None:
                 other_sheets.append(sheet_name)
+            else:
+                sheet_color_value = sheet_tab_color.value
+                if sheet_color_value == self._YELLOW_WITH_TRANSPARENT:
+                    yellow_sheets.append(sheet_name)
+                elif sheet_color_value == self._GRAY_WITH_TRANSPARENT:
+                    gray_sheets.append(sheet_name)
+                else:
+                    other_sheets.append(sheet_name)
 
         new_order = yellow_sheets + other_sheets + gray_sheets
 
