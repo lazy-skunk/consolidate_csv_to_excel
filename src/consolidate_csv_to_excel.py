@@ -232,12 +232,12 @@ class CSVConsolidator:
         return excel_path
 
     def create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
-        # if os.path.exists(excel_path):
-        #     self._logger.warning(
-        #         f"Excel file '{excel_path}' already exists."
-        #         " Processing will be aborted."
-        #     )
-        #     sys.exit(1)
+        if os.path.exists(excel_path):
+            self._logger.warning(
+                f"Excel file '{excel_path}' already exists."
+                " Processing will be aborted."
+            )
+            sys.exit(1)
 
         excel_directory = os.path.dirname(excel_path)
         os.makedirs(excel_directory, exist_ok=True)
