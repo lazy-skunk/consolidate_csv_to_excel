@@ -5,7 +5,7 @@ import os
 import sys
 from logging import Logger
 from logging.handlers import RotatingFileHandler
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 import yaml
@@ -13,10 +13,13 @@ from openpyxl import load_workbook
 from openpyxl.cell import Cell
 from openpyxl.styles import PatternFill
 
+_CONFIG_FILE_PATH = os.path.join("config", "config.yml")
+_TARGET_FOLDERS_BASE_PATH = os.path.join("log_directory")
+_LOG_FILE_PATH = os.path.join("log", "test.log")
+_EXCEL_FOLDER_PATH = os.path.join("output", "excel")
+
 
 class CustomLogger:
-    _LOG_FILE_PATH = os.path.join("log", "test.log")
-
     def __init__(
         self,
         log_file_path: str = _LOG_FILE_PATH,
@@ -48,56 +51,32 @@ class CustomLogger:
         return self._logger
 
 
-class CSVConsolidator:
+class DateHandler:
     _DATE_FORMAT = "%Y%m%d"
-    _LOG_FOLDER_PATH = os.path.join("log_directory")
-    _CONFIG_FILE_PATH = os.path.join("config", "config.yml")
-    _EXCEL_FOLDER_PATH = os.path.join("output", "excel")
 
-    def __init__(self) -> None:
-        self._logger = CustomLogger().get_logger
-        self._copied_count = 0
-        self._no_csv_count = 0
-        self._failed_count = 0
-        self._failed_hosts: List[str] = []
-        self._hosts_to_check: set[str] = set()
-        self._daily_summaries: Dict[
-            str, Dict[str, int | List[str] | Set[str]]
-        ] = {}
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
-            datetime.datetime.strptime(input_date, self._DATE_FORMAT)
+            datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
             return True
         except ValueError:
             return False
 
-    def _generate_date_range(
-        self, start_date_str: str, end_date_str: str
-    ) -> List[str]:
-        start_date = datetime.datetime.strptime(
-            start_date_str, self._DATE_FORMAT
-        )
-        end_date = datetime.datetime.strptime(end_date_str, self._DATE_FORMAT)
-
-        current_date = start_date
-        date_list = []
-        while current_date <= end_date:
-            date_list.append(current_date.strftime(self._DATE_FORMAT))
-            current_date += datetime.timedelta(days=1)
-
-        return date_list
-
-    def _get_input_date_or_yesterday(self) -> List[str]:
+    def get_input_date_or_yesterday(self) -> List[str]:
         DATE = 1
+        DATE_DELIMITER = "-"
         if len(sys.argv) > 1:
             input_date = sys.argv[DATE]
-            if "-" in input_date:
-                start_date_str, end_date_str = input_date.split("-")
+
+            if DATE_DELIMITER in input_date:
+                start_date_str, end_date_str = input_date.split(DATE_DELIMITER)
+
                 if self._is_valid_date(start_date_str) and self._is_valid_date(
                     end_date_str
                 ):
-                    return self._generate_date_range(
+                    return self.generate_date_range(
                         start_date_str, end_date_str
                     )
                 else:
@@ -116,39 +95,60 @@ class CSVConsolidator:
                 sys.exit(1)
         else:
             yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-            return [yesterday.strftime(self._DATE_FORMAT)]
+            return [yesterday.strftime(DateHandler._DATE_FORMAT)]
 
-    def _validate_targets(self, targets: List[str]) -> None:
-        for target in targets:
-            if not any(
-                folder.startswith(target)
-                for folder in os.listdir(self._LOG_FOLDER_PATH)
-            ):
-                self._logger.error(
-                    f"No folder starting with target '{target}' was found"
-                    f" in the log directory '{self._LOG_FOLDER_PATH}'."
-                    " Processing will be aborted."
-                )
-                sys.exit(1)
+    def generate_date_range(
+        self, start_date_str: str, end_date_str: str
+    ) -> List[str]:
+        start_date = datetime.datetime.strptime(
+            start_date_str, DateHandler._DATE_FORMAT
+        )
+        end_date = datetime.datetime.strptime(
+            end_date_str, DateHandler._DATE_FORMAT
+        )
 
-    def _get_targets_from_args_or_config(self) -> List[str]:
-        TARGET = 2
-        if len(sys.argv) > 2:
-            targets = sys.argv[TARGET].split(",")
-        else:
-            with open(self._CONFIG_FILE_PATH, "r") as file:
+        current_date = start_date
+        date_list = []
+        while current_date <= end_date:
+            date_list.append(current_date.strftime(DateHandler._DATE_FORMAT))
+            current_date += datetime.timedelta(days=1)
+
+        return date_list
+
+
+class ConfigLoader:
+    def __init__(
+        self, logger: Logger, config_file_path: str = _CONFIG_FILE_PATH
+    ) -> None:
+        self._logger = logger
+        self._config_file_path = config_file_path
+        self._config = self._load_config()
+
+    def _load_config(self) -> Dict[str, Any]:
+        try:
+            with open(self._config_file_path, "r") as file:
                 config = yaml.safe_load(file)
 
-            targets = config.get("targets", [])
+            self._logger.info("Configuration file loaded successfully.")
+            return config
+        except FileNotFoundError:
+            self._logger.error(
+                f"Configuration file '{self._config_file_path}' not found."
+                " Processing will be aborted."
+            )
+            sys.exit(1)
+        except yaml.YAMLError as e:
+            self._logger.error(
+                f"Error parsing the configuration file: {e}."
+                " Processing will be aborted."
+            )
+            sys.exit(1)
 
-        self._validate_targets(targets)
-        return targets
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
-    def _get_processing_time_threshold(self) -> int:
-        with open(self._CONFIG_FILE_PATH, "r") as file:
-            config = yaml.safe_load(file)
-
-        threshold = config.get("processing_time_threshold_seconds")
+    def get_processing_time_threshold(self) -> int:
+        threshold = self.get("processing_time_threshold_seconds")
 
         if isinstance(threshold, int):
             return threshold
@@ -160,12 +160,64 @@ class CSVConsolidator:
             )
             sys.exit(1)
 
-    def _create_output_folder_for_excel(self, date: str) -> None:
-        date_folder = os.path.join(self._EXCEL_FOLDER_PATH, date)
 
-        if not os.path.exists(date_folder):
-            os.makedirs(date_folder)
-            self._logger.info(f"Created directory: {date_folder}")
+class TargetHandler:
+    def __init__(self, config_loader: ConfigLoader, logger: Logger) -> None:
+        self.config_loader = config_loader
+        self._logger = logger
+
+    def get_targets(self) -> List[str]:
+        TARGET = 2
+        if len(sys.argv) > 2:
+            targets = sys.argv[TARGET].split(",")
+        else:
+            targets = self.config_loader.get("targets", [])
+
+        return targets
+
+    def get_existing_host_fullnames(self, targets: List[str]) -> List[str]:
+        host_fullnames = []
+        host_folders = os.listdir(_TARGET_FOLDERS_BASE_PATH)
+
+        for target in targets:
+            matched_host_names = [
+                host_folder
+                for host_folder in host_folders
+                if host_folder.startswith(target)
+            ]
+
+            if matched_host_names:
+                host_fullnames.extend(matched_host_names)
+            else:
+                self._logger.warning(
+                    f"No folder starting with target '{target}'"
+                    " was found in the log directory."
+                )
+
+        if not host_fullnames:
+            self._logger.error(
+                "No valid targets found. Processing will be aborted."
+            )
+            sys.exit(1)
+
+        return host_fullnames
+
+
+class CSVConsolidator:
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+        self._copied_count = 0
+        self._no_csv_count = 0
+        self._failed_count = 0
+        self._failed_hosts: List[str] = []
+
+    def get_summary(self) -> Dict[str, int | List[str]]:
+        return {
+            "copied": self._copied_count,
+            "no_csv": self._no_csv_count,
+            "failed": self._failed_count,
+            "failed_hosts": self._failed_hosts,
+        }
 
     def _determine_file_name_suffix(self, targets: List[str]) -> str:
         if len(sys.argv) > 2:
@@ -173,13 +225,22 @@ class CSVConsolidator:
         else:
             return "config"
 
-    def _create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
+    def create_excel_file_path(self, date: str, targets: List[str]) -> str:
+        file_name_suffix = self._determine_file_name_suffix(targets)
+        excel_name = f"{date}_{file_name_suffix}.xlsx"
+        excel_path = os.path.join(_EXCEL_FOLDER_PATH, date, excel_name)
+        return excel_path
+
+    def create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
         # if os.path.exists(excel_path):
         #     self._logger.warning(
         #         f"Excel file '{excel_path}' already exists."
         #         " Processing will be aborted."
         #     )
         #     sys.exit(1)
+
+        excel_directory = os.path.dirname(excel_path)
+        os.makedirs(excel_directory, exist_ok=True)
 
         with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
             pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
@@ -192,10 +253,10 @@ class CSVConsolidator:
         )
 
     def _get_merged_csv_path(
-        self, host_folder_path: str, date: str
+        self, target_folder_path: str, date: str
     ) -> Optional[str]:
         csv_name = f"test_{date}.csv"
-        csv_path = os.path.join(host_folder_path, csv_name)
+        csv_path = os.path.join(target_folder_path, csv_name)
 
         if os.path.exists(csv_path):
             self._logger.info(f"{csv_path} is found.")
@@ -205,68 +266,62 @@ class CSVConsolidator:
             return None
 
     def _copy_csv_to_excel(
-        self, writer: pd.ExcelWriter, csv_path: str, host_name: str
+        self, writer: pd.ExcelWriter, csv_path: str, target_name: str
     ) -> None:
         try:
             df = pd.read_csv(csv_path)
-            df.to_excel(writer, sheet_name=host_name, index=False)
+            df.to_excel(writer, sheet_name=target_name, index=False)
             self._logger.info(
-                f"Added '{host_name}' sheet from file: {csv_path}."
+                f"Added '{target_name}' sheet from file: {csv_path}."
             )
             self._copied_count += 1
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
-            self._logger.info(f"Skipping {host_name} sheet due to error.")
+            self._logger.info(f"Skipping {target_name} sheet due to error.")
             self._failed_count += 1
-            self._failed_hosts.append(host_name)
+            self._failed_hosts.append(target_name)
 
     def _create_no_csv_sheet_to_excel(
-        self, writer: pd.ExcelWriter, host_name: str
+        self, writer: pd.ExcelWriter, target_name: str
     ) -> None:
         df_for_not_found = pd.DataFrame({"A": ["No CSV file found."]})
         df_for_not_found.to_excel(
-            writer, sheet_name=host_name, index=False, header=False
+            writer, sheet_name=target_name, index=False, header=False
         )
 
-        _GRAY = "808080"
-        writer.sheets[host_name].sheet_properties.tabColor = _GRAY
+        GRAY = "7F7F7F"
+        writer.sheets[target_name].sheet_properties.tabColor = GRAY
 
         self._logger.info(
-            f"Wrote 'No CSV file found.' in cell A1 of '{host_name}' sheet."
+            f"Created sheet for '{target_name}' as no CSV file was found."
         )
         self._no_csv_count += 1
 
     def _add_sheet_for_target(
-        self, writer: pd.ExcelWriter, host_folder_path: str, date: str
+        self, writer: pd.ExcelWriter, target_folder_path: str, date: str
     ) -> None:
-        csv_file_path = self._get_merged_csv_path(host_folder_path, date)
-        host_name = os.path.basename(host_folder_path)
+        csv_path = self._get_merged_csv_path(target_folder_path, date)
+        target_name = os.path.basename(target_folder_path)
 
-        if csv_file_path:
-            self._copy_csv_to_excel(writer, csv_file_path, host_name)
+        if csv_path:
+            self._copy_csv_to_excel(writer, csv_path, target_name)
         else:
-            self._create_no_csv_sheet_to_excel(writer, host_name)
+            self._create_no_csv_sheet_to_excel(writer, target_name)
 
-    def _search_and_append_csv_to_excel(
+    def search_and_append_csv_to_excel(
         self,
         date: str,
-        targets: List[str],
+        target_fullnames: List[str],
         excel_path: str,
     ) -> None:
         with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
-            for host_folder_name in os.listdir(self._LOG_FOLDER_PATH):
-                if not any(
-                    host_folder_name.startswith(target) for target in targets
-                ):
-                    continue
-
-                host_folder_path = os.path.join(
-                    self._LOG_FOLDER_PATH, host_folder_name
+            for target_name in target_fullnames:
+                target_folder_path = os.path.join(
+                    _TARGET_FOLDERS_BASE_PATH, target_name
                 )
-                if os.path.isdir(host_folder_path):
-                    self._add_sheet_for_target(writer, host_folder_path, date)
+                self._add_sheet_for_target(writer, target_folder_path, date)
 
-    def _remove_sentinel_sheet(self, excel_path: str) -> None:
+    def remove_sentinel_sheet(self, excel_path: str) -> None:
         workbook = load_workbook(excel_path)
         if "SENTINEL_SHEET" in workbook.sheetnames:
             del workbook["SENTINEL_SHEET"]
@@ -275,6 +330,21 @@ class CSVConsolidator:
             return
 
         self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
+
+
+class ExcelAnalyzer:
+    _TRANSPARENT = "00"
+    _YELLOW = "FFFF7F"
+    _GRAY = "7F7F7F"
+    _YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW
+    _GRAY_WITH_TRANSPARENT = _TRANSPARENT + _GRAY
+
+    def __init__(self, logger: Logger) -> None:
+        self._logger = logger
+        self._hosts_to_check: set[str] = set()
+
+    def get_hosts_to_check(self) -> set:
+        return self._hosts_to_check
 
     def _highlight_cell(self, cell: Cell, color_code: str) -> None:
         pattern_fill = PatternFill(start_color=color_code, fill_type="solid")
@@ -286,11 +356,11 @@ class CSVConsolidator:
         excess_ratio = (processing_time_seconds - threshold) / threshold
         clamped_excess_ratio = min(excess_ratio, 1)
 
-        _MAX_GREEN_VALUE = 255
-        _MIN_GREEN_VALUE = _MAX_GREEN_VALUE / 2
+        MAX_GREEN_VALUE = 255
+        MIN_GREEN_VALUE = MAX_GREEN_VALUE / 2
         green_value = int(
-            _MAX_GREEN_VALUE
-            - (_MAX_GREEN_VALUE - _MIN_GREEN_VALUE) * clamped_excess_ratio
+            MAX_GREEN_VALUE
+            - (MAX_GREEN_VALUE - MIN_GREEN_VALUE) * clamped_excess_ratio
         )
 
         green_hex_value = f"{green_value:02X}"
@@ -334,12 +404,11 @@ class CSVConsolidator:
         json_cell = row[json_column]
         json_value = json_cell.value
 
-        _LIGHT_YELLOW = "FFFF7F"
         if json_value:
             try:
                 json_data = json.loads(json_value)
                 if any(item.get("random_key") is True for item in json_data):
-                    self._highlight_cell(json_cell, _LIGHT_YELLOW)
+                    self._highlight_cell(json_cell, self._YELLOW)
                     return True
             except json.JSONDecodeError:
                 self._logger.warning(
@@ -347,18 +416,19 @@ class CSVConsolidator:
                 )
         return False
 
-    def _highlight_cells_and_sheet_tabs_by_criteria(
+    def highlight_cells_and_sheet_tabs(
         self, excel_path: str, threshold: int
     ) -> None:
-        self._logger.info("Analyze and highlight started.")
+        self._logger.info(
+            f"Highlighting cells and sheet tabs started for file: {excel_path}"
+        )
         workbook = load_workbook(excel_path)
 
-        _HEADER_ROW = 1
-        _DATA_START_ROW = _HEADER_ROW + 1
-        _ZERO_BASED_INDEX_OFFSET = 1
-        _PROCESSING_TIME_COLUMN = 3 - _ZERO_BASED_INDEX_OFFSET
-        _JSON_COLUMN = 4 - _ZERO_BASED_INDEX_OFFSET
-        _LIGHT_YELLOW = "FFFF7F"
+        HEADER_ROW = 1
+        DATA_START_ROW = HEADER_ROW + 1
+        ZERO_BASED_INDEX_OFFSET = 1
+        PROCESSING_TIME_COLUMN = 3 - ZERO_BASED_INDEX_OFFSET
+        JSON_COLUMN = 4 - ZERO_BASED_INDEX_OFFSET
         total_sheets = len(workbook.sheetnames)
         for current_sheet_number, host_name in enumerate(
             workbook.sheetnames, start=1
@@ -367,105 +437,143 @@ class CSVConsolidator:
             sheet = workbook[host_name]
             has_highlighted_cell = False
 
-            for row in sheet.iter_rows(min_row=_DATA_START_ROW):
+            for row in sheet.iter_rows(min_row=DATA_START_ROW):
                 if self._check_and_highlight_processing_time(
-                    row, _PROCESSING_TIME_COLUMN, threshold
-                ) or self._check_and_highlight_json_key(row, _JSON_COLUMN):
+                    row, PROCESSING_TIME_COLUMN, threshold
+                ) or self._check_and_highlight_json_key(row, JSON_COLUMN):
                     self._hosts_to_check.add(host_name)
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
-                sheet.sheet_properties.tabColor = _LIGHT_YELLOW
+                sheet.sheet_properties.tabColor = self._YELLOW
 
             self._logger.info(
                 f"Completed processing sheet: {host_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
+        workbook.save(excel_path)
+        workbook.close()
+        self._logger.info(
+            "Highlighting cells and sheet tabs completed"
+            f" for file: {excel_path}"
+        )
+
+    def reorder_sheets_by_color(self, excel_path: str) -> None:
+        self._logger.info(
+            f"Reordering sheets by color started for file: {excel_path}"
+        )
+        workbook = load_workbook(excel_path)
+
+        yellow_sheets = []
+        gray_sheets = []
+        other_sheets = []
+
+        for sheet_name in workbook.sheetnames:
+            sheet_color = workbook[sheet_name].sheet_properties.tabColor.value
+            if sheet_color == self._YELLOW_WITH_TRANSPARENT:
+                yellow_sheets.append(sheet_name)
+            elif sheet_color == self._GRAY_WITH_TRANSPARENT:
+                gray_sheets.append(sheet_name)
+            else:
+                other_sheets.append(sheet_name)
+
+        new_order = yellow_sheets + other_sheets + gray_sheets
+
+        for index, sheet_name in enumerate(new_order):
+            workbook.move_sheet(sheet_name, index)
 
         workbook.save(excel_path)
         workbook.close()
-        self._logger.info("Analyze and highlight completed for all sheets.")
+        self._logger.info(
+            f"Reordering sheets completed for file: {excel_path}"
+        )
 
-    def _save_daily_summary(self, date: str) -> None:
-        self._daily_summaries[date] = {
-            "copied": self._copied_count,
-            "no_csv": self._no_csv_count,
-            "failed": self._failed_count,
-            "failed_hosts": self._failed_hosts,
-            "hosts_to_check": self._hosts_to_check,
-        }
 
-    def _reset_counters_and_collections(self) -> None:
-        self._copied_count = 0
-        self._no_csv_count = 0
-        self._failed_count = 0
-        self._failed_hosts = []
-        self._hosts_to_check = set()
+def _save_daily_summary(
+    daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
+    date: str,
+    consolidator: CSVConsolidator,
+    excel_analyzer: ExcelAnalyzer,
+) -> None:
+    consolidator_summary = consolidator.get_summary()
+    hosts_to_check = excel_analyzer.get_hosts_to_check()
 
-    def _log_daily_summary(self) -> None:
-        self._logger.info("Daily summary of processing:")
+    daily_summaries[date] = {
+        **consolidator_summary,
+        "hosts_to_check": hosts_to_check,
+    }
 
-        for date, summary in self._daily_summaries.items():
-            self._logger.info(
-                f"Date: {date} - Copied: {summary['copied']},"
-                f" No CSV: {summary['no_csv']}. "
-            )
 
-            if summary.get("hosts_to_check"):
-                hosts_to_check = summary["hosts_to_check"]
-                if isinstance(hosts_to_check, set):
-                    self._logger.warning(
-                        f"Date: {date} - hosts to check:"
-                        f" {', '.join(hosts_to_check)}"
-                    )
-                else:
-                    self._logger.warning(
-                        f"Date: {date} - hosts to check: {hosts_to_check}"
-                    )
+def _log_daily_summaries(
+    logger: Logger,
+    daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
+) -> None:
+    logger.info("Logging daily summaries for each date:")
+    for date, summary in daily_summaries.items():
+        logger.info(
+            f"Date: {date} - Copied: {summary['copied']},"
+            f" No CSV: {summary['no_csv']}. "
+        )
 
-            if summary.get("failed") and summary.get("failed_hosts"):
-                failed_hosts = summary["failed_hosts"]
-                if isinstance(failed_hosts, list):
-                    self._logger.error(
-                        f"Date: {date} - Failed: {summary['failed']},"
-                        f" Failed Hosts: {', '.join(failed_hosts)}"
-                    )
-                else:
-                    self._logger.error(
-                        f"Date: {date} - Failed: {summary['failed']},"
-                        f" Failed Hosts: {failed_hosts}"
-                    )
+        if summary.get("hosts_to_check"):
+            hosts_to_check = summary["hosts_to_check"]
+            if isinstance(hosts_to_check, set):
+                logger.warning(
+                    f"Date: {date} - hosts to check:"
+                    f" {', '.join(hosts_to_check)}"
+                )
+            else:
+                logger.warning(
+                    f"Date: {date} - hosts to check: {hosts_to_check}"
+                )
 
-    def main(self) -> None:
-        self._logger.info("Process started.")
-
-        date_list = self._get_input_date_or_yesterday()
-        targets = self._get_targets_from_args_or_config()
-        processing_time_threshold = self._get_processing_time_threshold()
-
-        for date in date_list:
-            file_name_suffix = self._determine_file_name_suffix(targets)
-            excel_name = f"{date}_{file_name_suffix}.xlsx"
-            excel_path = os.path.join(
-                self._EXCEL_FOLDER_PATH, date, excel_name
-            )
-
-            self._create_output_folder_for_excel(date)
-            self._create_excel_with_sentinel_sheet(excel_path)
-            self._search_and_append_csv_to_excel(date, targets, excel_path)
-            self._remove_sentinel_sheet(excel_path)
-
-            self._highlight_cells_and_sheet_tabs_by_criteria(
-                excel_path, processing_time_threshold
-            )
-
-            self._save_daily_summary(date)
-            self._reset_counters_and_collections()
-
-        self._log_daily_summary()
-        self._logger.info("Process completed.")
+        if summary.get("failed") and summary.get("failed_hosts"):
+            failed_hosts = summary["failed_hosts"]
+            if isinstance(failed_hosts, list):
+                logger.error(
+                    f"Date: {date} - Failed: {summary['failed']},"
+                    f" Failed Hosts: {', '.join(failed_hosts)}"
+                )
+            else:
+                logger.error(
+                    f"Date: {date} - Failed: {summary['failed']},"
+                    f" Failed Hosts: {failed_hosts}"
+                )
 
 
 if __name__ == "__main__":  # pragma: no cover
-    consolidator = CSVConsolidator()
-    consolidator.main()
+    logger = CustomLogger(_LOG_FILE_PATH).get_logger
+    logger.info("Process started.")
+
+    date_handler = DateHandler(logger)
+    config_loader = ConfigLoader(logger, _CONFIG_FILE_PATH)
+    target_handler = TargetHandler(config_loader, logger)
+
+    date_range = date_handler.get_input_date_or_yesterday()
+    targets = target_handler.get_targets()
+    target_fullnames = target_handler.get_existing_host_fullnames(targets)
+    processing_time_threshold = config_loader.get_processing_time_threshold()
+    daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]] = {}
+
+    for date in date_range:
+        consolidator = CSVConsolidator(logger)
+
+        excel_path = consolidator.create_excel_file_path(date, targets)
+        consolidator.create_excel_with_sentinel_sheet(excel_path)
+        consolidator.search_and_append_csv_to_excel(
+            date, target_fullnames, excel_path
+        )
+        consolidator.remove_sentinel_sheet(excel_path)
+
+        excel_analyzer = ExcelAnalyzer(logger)
+        excel_analyzer.highlight_cells_and_sheet_tabs(
+            excel_path, processing_time_threshold
+        )
+        excel_analyzer.reorder_sheets_by_color(excel_path)
+
+        _save_daily_summary(
+            daily_summaries, date, consolidator, excel_analyzer
+        )
+
+    _log_daily_summaries(logger, daily_summaries)
+    logger.info("Process completed.")

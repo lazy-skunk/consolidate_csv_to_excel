@@ -1,4 +1,5 @@
 targets:
   - abc01
   - def0
+  - invalid
 processing_time_threshold_seconds: 120
