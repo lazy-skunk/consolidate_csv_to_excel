@@ -497,8 +497,8 @@ class ExcelAnalyzer:
 
         new_order = yellow_sheets + other_sheets + gray_sheets
 
-        for index, sheet_name in enumerate(new_order):
-            workbook.move_sheet(sheet_name, index)
+        for sheet_name in new_order:
+            workbook.move_sheet(sheet_name, len(workbook.sheetnames))
 
         workbook.save(excel_path)
         workbook.close()
@@ -587,6 +587,7 @@ if __name__ == "__main__":  # pragma: no cover
         excel_analyzer.highlight_cells_and_sheet_tabs(
             excel_path, processing_time_threshold
         )
+        excel_path = "test_excel.xlsx"
         excel_analyzer.reorder_sheets_by_color(excel_path)
 
         _save_daily_summary(
