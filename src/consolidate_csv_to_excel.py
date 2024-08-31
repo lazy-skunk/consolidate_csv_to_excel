@@ -19,7 +19,7 @@ _LOG_FILE_PATH = os.path.join("log", "test.log")
 _EXCEL_FOLDER_PATH = os.path.join("output", "excel")
 
 
-class CustomLogger:
+class CustomLogger:  # pragma: no cover
     def __init__(
         self,
         log_file_path: str = _LOG_FILE_PATH,
@@ -83,6 +83,24 @@ class DateHandler:
             )
             sys.exit(1)
 
+    def _generate_date_range(
+        self, start_date_str: str, end_date_str: str
+    ) -> List[str]:
+        start_date = datetime.datetime.strptime(
+            start_date_str, DateHandler._DATE_FORMAT
+        )
+        end_date = datetime.datetime.strptime(
+            end_date_str, DateHandler._DATE_FORMAT
+        )
+
+        current_date = start_date
+        date_list = []
+        while current_date <= end_date:
+            date_list.append(current_date.strftime(DateHandler._DATE_FORMAT))
+            current_date += datetime.timedelta(days=1)
+
+        return date_list
+
     def get_input_date_or_yesterday(self) -> List[str]:
         DATE = 1
         DATE_DELIMITER = "-"
@@ -102,7 +120,7 @@ class DateHandler:
                             start_date_str,
                         )
 
-                    return self.generate_date_range(
+                    return self._generate_date_range(
                         start_date_str, end_date_str
                     )
             elif self._is_valid_date(input_date):
@@ -110,24 +128,6 @@ class DateHandler:
 
         yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
         return [yesterday.strftime(DateHandler._DATE_FORMAT)]
-
-    def generate_date_range(
-        self, start_date_str: str, end_date_str: str
-    ) -> List[str]:
-        start_date = datetime.datetime.strptime(
-            start_date_str, DateHandler._DATE_FORMAT
-        )
-        end_date = datetime.datetime.strptime(
-            end_date_str, DateHandler._DATE_FORMAT
-        )
-
-        current_date = start_date
-        date_list = []
-        while current_date <= end_date:
-            date_list.append(current_date.strftime(DateHandler._DATE_FORMAT))
-            current_date += datetime.timedelta(days=1)
-
-        return date_list
 
 
 class ConfigLoader:
