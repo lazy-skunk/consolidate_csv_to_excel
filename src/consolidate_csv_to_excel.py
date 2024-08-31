@@ -95,6 +95,12 @@ class DateHandler:
                 if self._is_valid_date(start_date_str) and self._is_valid_date(
                     end_date_str
                 ):
+                    if start_date_str > end_date_str:
+                        start_date_str, end_date_str = (
+                            end_date_str,
+                            start_date_str,
+                        )
+
                     return self.generate_date_range(
                         start_date_str, end_date_str
                     )
