@@ -65,7 +65,7 @@ class TestHelper:
     ],
 )
 def test_get_input_date_or_yesterday(
-    date_handler: MagicMock,
+    date_handler: DateHandler,
     argv: List[str],
     expected: List[str],
 ) -> None:
