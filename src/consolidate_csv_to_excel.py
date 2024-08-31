@@ -59,14 +59,21 @@ class DateHandler:
 
     def _is_valid_date(self, input_date: str) -> bool:
         try:
-            datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
+            date = datetime.datetime.strptime(
+                input_date, DateHandler._DATE_FORMAT
+            )
+            if date > datetime.datetime.now():
+                self._logger.error(f"Future date specified: {input_date}.")
+                sys.exit(1)
             return True
         except ValueError:
-            return False
+            self._logger.error(f"Invalid date format specified: {input_date}.")
+            sys.exit(1)
 
     def get_input_date_or_yesterday(self) -> List[str]:
         DATE = 1
         DATE_DELIMITER = "-"
+
         if len(sys.argv) > 1:
             input_date = sys.argv[DATE]
 
@@ -79,23 +86,11 @@ class DateHandler:
                     return self.generate_date_range(
                         start_date_str, end_date_str
                     )
-                else:
-                    self._logger.error(
-                        f"Invalid date range specified: {input_date}."
-                        " Processing will be aborted."
-                    )
-                    sys.exit(1)
             elif self._is_valid_date(input_date):
                 return [input_date]
-            else:
-                self._logger.error(
-                    f"Invalid date specified: {input_date}."
-                    " Processing will be aborted."
-                )
-                sys.exit(1)
-        else:
-            yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
-            return [yesterday.strftime(DateHandler._DATE_FORMAT)]
+
+        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        return [yesterday.strftime(DateHandler._DATE_FORMAT)]
 
     def generate_date_range(
         self, start_date_str: str, end_date_str: str
