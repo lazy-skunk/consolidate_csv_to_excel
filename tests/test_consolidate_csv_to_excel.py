@@ -24,7 +24,7 @@ class TestHelper:
     TOMORROW = (datetime.now() + timedelta(days=1)).strftime(DATE_FORMAT)
 
     @staticmethod
-    def create_temp_config_file_and_return_path(
+    def create_temp_config_and_return_path(
         tmp_path: Path, config_data: dict
     ) -> str:
         temp_config_path = os.path.join(tmp_path, "temp_config.yaml")
@@ -117,7 +117,7 @@ def test_get_processing_time_threshold(
     expected: int,
     exception: type[SystemExit] | None,
 ) -> None:
-    temp_config_path = TestHelper.create_temp_config_file_and_return_path(
+    temp_config_path = TestHelper.create_temp_config_and_return_path(
         tmp_path, config_data
     )
     config_loader = ConfigLoader(mock_logger, str(temp_config_path))
