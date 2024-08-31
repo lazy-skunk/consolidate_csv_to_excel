@@ -1,19 +1,27 @@
 import logging
+import os
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 
 from src.consolidate_csv_to_excel import (
     ConfigLoader,
     CSVConsolidator,
+    DateHandler,
     TargetHandler,
 )
 
 
 @pytest.fixture
 def mock_logger() -> MagicMock:
-    logger = MagicMock(spec=logging.Logger)
-    return logger
+    return MagicMock(spec=logging.Logger)
+
+
+@pytest.fixture
+def date_handler(mock_logger: MagicMock) -> DateHandler:
+    return DateHandler(mock_logger)
 
 
 @pytest.fixture
@@ -31,3 +39,30 @@ def target_handler(
 @pytest.fixture
 def csv_consolidator(mock_logger: MagicMock) -> CSVConsolidator:
     return CSVConsolidator(mock_logger)
+
+
+@pytest.fixture
+def tmp_excel_path(tmp_path: Path) -> str:
+    return os.path.join(tmp_path, "output.xlsx")
+
+
+@pytest.fixture
+def prepare_excel_with_sentinel(tmp_path: Path) -> None:
+    excel_path = str(tmp_path / "output.xlsx")
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
+        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
+            writer, sheet_name="SENTINEL_SHEET", index=False, header=False
+        )
+
+
+@pytest.fixture
+def prepare_tmp_csv(tmp_path: Path) -> None:
+    for i in range(3):
+        csv_file = f"{tmp_path}/target_{i}/test_19880209.csv"
+
+        csv_directory = os.path.dirname(csv_file)
+        os.makedirs(csv_directory, exist_ok=True)
+
+        df = pd.DataFrame({"column1": [1, 2, 3], "column2": ["a", "b", "c"]})
+        df.to_csv(csv_file, index=False)
