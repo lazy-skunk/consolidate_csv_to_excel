@@ -26,3 +26,8 @@ def target_handler(
     mock_config_loader: MagicMock, mock_logger: MagicMock
 ) -> TargetHandler:
     return TargetHandler(mock_config_loader, mock_logger)
+
+
+@pytest.fixture
+def csv_consolidator(mock_logger: MagicMock) -> CSVConsolidator:
+    return CSVConsolidator(mock_logger)

@@ -9,6 +9,7 @@ import yaml
 
 from src.consolidate_csv_to_excel import (
     ConfigLoader,
+    CSVConsolidator,
     DateHandler,
     TargetHandler,
 )
@@ -196,3 +197,32 @@ def test_get_existing_host_fullnames(
                 targets
             )
             assert host_fullnames == expected_fullnames
+
+
+@pytest.mark.parametrize(
+    "argv, expected_suffix",
+    [
+        (["test.py", "arg1", "arg2"], "target1_target2"),
+        (["test.py"], "config"),
+    ],
+)
+def test_create_excel_file_path(
+    csv_consolidator: CSVConsolidator, argv: List[str], expected_suffix: str
+) -> None:
+    date = "19880209"
+    targets = ["target1", "target2"]
+
+    test_folder_path = "test"
+
+    with (
+        patch("sys.argv", argv),
+        patch(
+            "src.consolidate_csv_to_excel._EXCEL_FOLDER_PATH",
+            test_folder_path,
+        ),
+    ):
+        expected_path = (
+            f"{test_folder_path}/{date}/{date}_{expected_suffix}.xlsx"
+        )
+        result = csv_consolidator.create_excel_file_path(date, targets)
+        assert result == expected_path
