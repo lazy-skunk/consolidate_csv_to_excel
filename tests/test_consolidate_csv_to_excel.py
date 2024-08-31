@@ -1,9 +1,11 @@
+import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Type
 from unittest.mock import MagicMock, patch
 
+import pandas as pd
 import pytest
 import yaml
 
@@ -14,7 +16,33 @@ from src.consolidate_csv_to_excel import (
     TargetHandler,
 )
 
-_DATE_FORMAT = "%Y%m%d"
+
+class TestHelper:
+    DATE_FORMAT = "%Y%m%d"
+    YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(DATE_FORMAT)
+    TODAY = datetime.now().strftime(DATE_FORMAT)
+    TOMORROW = (datetime.now() + timedelta(days=1)).strftime(DATE_FORMAT)
+
+    @staticmethod
+    def create_temp_config_file_and_return_path(
+        tmp_path: Path, config_data: dict
+    ) -> str:
+        temp_config_path = os.path.join(tmp_path, "test_config.yaml")
+
+        with open(temp_config_path, "w") as file:
+            yaml.dump(config_data, file)
+
+        return temp_config_path
+
+    @staticmethod
+    def create_malformed_config_and_return_path(tmp_path: Path) -> str:
+        malformed_yaml = "invalid_yaml: [unclosed list"
+        temp_file = tmp_path / "malformed_config.yaml"
+
+        with open(temp_file, "w") as file:
+            file.write(malformed_yaml)
+
+        return temp_file
 
 
 @pytest.mark.parametrize(
@@ -22,7 +50,7 @@ _DATE_FORMAT = "%Y%m%d"
     [
         (
             ["test.py"],
-            [(datetime.now() - timedelta(days=1)).strftime(_DATE_FORMAT)],
+            [TestHelper.YESTERDAY],
         ),
         (["test.py", "19880209"], ["19880209"]),
         (["test.py", "19880209~19880209"], ["19880209"]),
@@ -37,12 +65,11 @@ _DATE_FORMAT = "%Y%m%d"
     ],
 )
 def test_get_input_date_or_yesterday(
-    mock_logger: MagicMock,
+    date_handler: MagicMock,
     argv: List[str],
     expected: List[str],
 ) -> None:
     with patch.object(sys, "argv", argv):
-        date_handler = DateHandler(mock_logger)
         result = date_handler.get_input_date_or_yesterday()
         assert result == expected
 
@@ -56,7 +83,7 @@ def test_get_input_date_or_yesterday(
         (
             [
                 "test.py",
-                (datetime.now() + timedelta(days=1)).strftime(_DATE_FORMAT),
+                TestHelper.TOMORROW,
             ]
         ),
         (["test.py", "invalid_date"]),
@@ -69,15 +96,6 @@ def test_get_input_date_or_yesterday_invalid_dates(
         with pytest.raises(SystemExit):
             date_handler = DateHandler(mock_logger)
             date_handler.get_input_date_or_yesterday()
-
-
-def _create_temp_config_file(tmp_path: Path, config_data: dict) -> Path:
-    temp_file = tmp_path / "test_config.yaml"
-
-    with open(temp_file, "w") as file:
-        yaml.dump(config_data, file)
-
-    return temp_file
 
 
 @pytest.mark.parametrize(
@@ -99,8 +117,10 @@ def test_get_processing_time_threshold(
     expected: int,
     exception: type[SystemExit] | None,
 ) -> None:
-    temp_config_file = _create_temp_config_file(tmp_path, config_data)
-    config_loader = ConfigLoader(mock_logger, str(temp_config_file))
+    temp_config_path = TestHelper.create_temp_config_file_and_return_path(
+        tmp_path, config_data
+    )
+    config_loader = ConfigLoader(mock_logger, str(temp_config_path))
 
     if exception:
         with pytest.raises(exception):
@@ -118,14 +138,11 @@ def test_config_not_found(mock_logger: MagicMock) -> None:
 def test_get_processing_time_threshold_with_invalid_config(
     mock_logger: MagicMock, tmp_path: Path
 ) -> None:
-    malformed_yaml = "invalid_yaml: [unclosed list"
-    temp_file = tmp_path / "malformed_config.yaml"
-
-    with open(temp_file, "w") as file:
-        file.write(malformed_yaml)
-
+    malformed_yml_path = TestHelper.create_malformed_config_and_return_path(
+        tmp_path
+    )
     with pytest.raises(SystemExit):
-        ConfigLoader(mock_logger, str(temp_file))
+        ConfigLoader(mock_logger, str(malformed_yml_path))
 
 
 @pytest.mark.parametrize(
@@ -159,7 +176,7 @@ def test_get_targets(
 
 
 @pytest.mark.parametrize(
-    "host_folders, targets, expected_fullnames, exception",
+    "host_folders, targets, expected, exception",
     [
         (
             ["host1_log", "host2_log", "host3_log"],
@@ -185,7 +202,7 @@ def test_get_existing_host_fullnames(
     target_handler: TargetHandler,
     host_folders: List[str],
     targets: List[str],
-    expected_fullnames: List[str],
+    expected: List[str],
     exception: Type[SystemExit] | None,
 ) -> None:
     with patch("os.listdir", return_value=host_folders):
@@ -196,45 +213,68 @@ def test_get_existing_host_fullnames(
             host_fullnames = target_handler.get_existing_host_fullnames(
                 targets
             )
-            assert host_fullnames == expected_fullnames
+            assert host_fullnames == expected
 
 
 @pytest.mark.parametrize(
-    "argv, expected_suffix",
+    "argv, expected",
     [
         (["test.py", "arg1", "arg2"], "target1_target2"),
         (["test.py"], "config"),
     ],
 )
 def test_create_excel_file_path(
-    csv_consolidator: CSVConsolidator, argv: List[str], expected_suffix: str
+    csv_consolidator: CSVConsolidator,
+    tmp_path: Path,
+    argv: List[str],
+    expected: str,
 ) -> None:
     date = "19880209"
     targets = ["target1", "target2"]
-
-    test_folder_path = "test"
 
     with (
         patch("sys.argv", argv),
         patch(
             "src.consolidate_csv_to_excel._EXCEL_FOLDER_PATH",
-            test_folder_path,
+            tmp_path,
         ),
     ):
-        expected_path = (
-            f"{test_folder_path}/{date}/{date}_{expected_suffix}.xlsx"
-        )
+        expected = f"{tmp_path}/{date}/{date}_{expected}.xlsx"
         result = csv_consolidator.create_excel_file_path(date, targets)
-        assert result == expected_path
+        assert result == expected
 
 
 def test_create_excel_with_sentinel_sheet(
-    csv_consolidator: CSVConsolidator, tmp_path: Path
+    csv_consolidator: CSVConsolidator, tmp_excel_path: str
 ) -> None:
-    excel_path = f"{tmp_path}/dummy_path.xlsx"
-
-    csv_consolidator.create_excel_with_sentinel_sheet(excel_path)
-    assert Path(excel_path).exists()
+    csv_consolidator.create_excel_with_sentinel_sheet(tmp_excel_path)
+    assert Path(tmp_excel_path).exists()
 
     with pytest.raises(SystemExit):
-        csv_consolidator.create_excel_with_sentinel_sheet(excel_path)
+        csv_consolidator.create_excel_with_sentinel_sheet(tmp_excel_path)
+
+
+def test_search_and_append_csv_to_excel(
+    csv_consolidator: CSVConsolidator,
+    prepare_tmp_csv: None,
+    prepare_excel_with_sentinel: None,
+    tmp_path: Path,
+    tmp_excel_path: str,
+) -> None:
+    date = "19880209"
+    target_fullnames = [f"target_{i}" for i in range(3)]
+
+    with patch(
+        "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH", f"{tmp_path}"
+    ):
+        csv_consolidator.search_and_append_csv_to_excel(
+            date, target_fullnames, tmp_excel_path
+        )
+
+        with pd.ExcelFile(tmp_excel_path) as xls:
+            assert set(xls.sheet_names) == {
+                "SENTINEL_SHEET",
+                "target_0",
+                "target_1",
+                "target_2",
+            }
