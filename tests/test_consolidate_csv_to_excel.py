@@ -27,7 +27,7 @@ class TestHelper:
     def create_temp_config_file_and_return_path(
         tmp_path: Path, config_data: dict
     ) -> str:
-        temp_config_path = os.path.join(tmp_path, "test_config.yaml")
+        temp_config_path = os.path.join(tmp_path, "temp_config.yaml")
 
         with open(temp_config_path, "w") as file:
             yaml.dump(config_data, file)
@@ -36,11 +36,11 @@ class TestHelper:
 
     @staticmethod
     def create_malformed_config_and_return_path(tmp_path: Path) -> str:
-        malformed_yaml = "invalid_yaml: [unclosed list"
-        temp_file = tmp_path / "malformed_config.yaml"
+        malformed_content = "invalid_yaml: [unclosed list"
+        temp_file = os.path.join(tmp_path, "malformed_config.yaml")
 
         with open(temp_file, "w") as file:
-            file.write(malformed_yaml)
+            file.write(malformed_content)
 
         return temp_file
 
