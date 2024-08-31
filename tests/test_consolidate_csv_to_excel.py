@@ -1,13 +1,17 @@
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List
+from typing import List, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 
-from src.consolidate_csv_to_excel import ConfigLoader, DateHandler
+from src.consolidate_csv_to_excel import (
+    ConfigLoader,
+    DateHandler,
+    TargetHandler,
+)
 
 _DATE_FORMAT = "%Y%m%d"
 
@@ -121,3 +125,74 @@ def test_get_processing_time_threshold_with_invalid_config(
 
     with pytest.raises(SystemExit):
         ConfigLoader(mock_logger, str(temp_file))
+
+
+@pytest.mark.parametrize(
+    "argv, config_targets, expected",
+    [
+        (
+            ["test.py", "dummy_arg", "target1,target2"],
+            None,
+            ["target1", "target2"],
+        ),
+        (
+            ["test.py"],
+            ["config_target1", "config_target2"],
+            ["config_target1", "config_target2"],
+        ),
+    ],
+)
+def test_get_targets(
+    target_handler: TargetHandler,
+    mock_config_loader: MagicMock,
+    argv: List[str],
+    config_targets: List[str] | None,
+    expected: List[str],
+) -> None:
+    with patch("sys.argv", argv):
+        if config_targets is not None:
+            mock_config_loader.get.return_value = config_targets
+
+        targets = target_handler.get_targets()
+        assert targets == expected
+
+
+@pytest.mark.parametrize(
+    "host_folders, targets, expected_fullnames, exception",
+    [
+        (
+            ["host1_log", "host2_log", "host3_log"],
+            ["host1", "host2"],
+            ["host1_log", "host2_log"],
+            None,
+        ),
+        (
+            ["host1_log", "host2_log", "host3_log"],
+            ["host4"],
+            [],
+            SystemExit,
+        ),
+        (
+            ["host1_log", "host2_log", "host3_log"],
+            ["host1", "host4"],
+            ["host1_log"],
+            None,
+        ),
+    ],
+)
+def test_get_existing_host_fullnames(
+    target_handler: TargetHandler,
+    host_folders: List[str],
+    targets: List[str],
+    expected_fullnames: List[str],
+    exception: Type[SystemExit] | None,
+) -> None:
+    with patch("os.listdir", return_value=host_folders):
+        if exception:
+            with pytest.raises(exception):
+                target_handler.get_existing_host_fullnames(targets)
+        else:
+            host_fullnames = target_handler.get_existing_host_fullnames(
+                targets
+            )
+            assert host_fullnames == expected_fullnames
