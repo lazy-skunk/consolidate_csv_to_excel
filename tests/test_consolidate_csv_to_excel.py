@@ -167,7 +167,7 @@ def test_get_targets(
     expected: List[str],
 ) -> None:
     with patch("sys.argv", argv):
-        if config_targets is not None:
+        if config_targets:
             mock_config_loader.get.return_value = config_targets
 
         targets = target_handler.get_targets()
