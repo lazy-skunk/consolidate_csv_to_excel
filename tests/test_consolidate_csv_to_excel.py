@@ -90,11 +90,10 @@ def test_get_input_date_or_yesterday(
     ],
 )
 def test_get_input_date_or_yesterday_invalid_dates(
-    mock_logger: MagicMock, argv: List[str]
+    date_handler: DateHandler, argv: List[str]
 ) -> None:
     with patch.object(sys, "argv", argv):
         with pytest.raises(SystemExit):
-            date_handler = DateHandler(mock_logger)
             date_handler.get_input_date_or_yesterday()
 
 
