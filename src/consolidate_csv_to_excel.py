@@ -58,16 +58,28 @@ class DateHandler:
         self._logger = logger
 
     def _is_valid_date(self, input_date: str) -> bool:
+        if len(input_date) != 8:
+            self._logger.error(
+                f"Date must be 8 digits in YYYYMMDD format: {input_date}."
+            )
+            sys.exit(1)
+
         try:
             date = datetime.datetime.strptime(
                 input_date, DateHandler._DATE_FORMAT
             )
             if date > datetime.datetime.now():
-                self._logger.error(f"Future date specified: {input_date}.")
+                self._logger.error(
+                    f"Future date specified: {input_date}."
+                    " Processing will be aborted."
+                )
                 sys.exit(1)
             return True
         except ValueError:
-            self._logger.error(f"Invalid date format specified: {input_date}.")
+            self._logger.error(
+                f"Invalid date format specified: {input_date}."
+                " Processing will be aborted."
+            )
             sys.exit(1)
 
     def get_input_date_or_yesterday(self) -> List[str]:
