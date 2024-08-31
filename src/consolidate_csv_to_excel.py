@@ -271,13 +271,9 @@ class CSVConsolidator:
         try:
             df = pd.read_csv(csv_path)
             df.to_excel(writer, sheet_name=target_name, index=False)
-            self._logger.info(
-                f"Added '{target_name}' sheet from file: {csv_path}."
-            )
             self._copied_count += 1
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
-            self._logger.info(f"Skipping {target_name} sheet due to error.")
             self._failed_count += 1
             self._failed_hosts.append(target_name)
 
@@ -292,9 +288,6 @@ class CSVConsolidator:
         GRAY = "7F7F7F"
         writer.sheets[target_name].sheet_properties.tabColor = GRAY
 
-        self._logger.info(
-            f"Created sheet for '{target_name}' as no CSV file was found."
-        )
         self._no_csv_count += 1
 
     def _add_sheet_for_target(
@@ -324,7 +317,7 @@ class CSVConsolidator:
                 )
                 self._add_sheet_for_target(writer, target_folder_path, date)
                 self._logger.info(
-                    f"Completed adding sheet: {target_name}."
+                    f"Added sheet: {target_name}."
                     f" ({current_target_number}/{total_targets})"
                 )
 
@@ -440,7 +433,6 @@ class ExcelAnalyzer:
         for current_sheet_number, host_name in enumerate(
             workbook.sheetnames, start=1
         ):
-            self._logger.info(f"Processing sheet: {host_name}")
             sheet = workbook[host_name]
             has_highlighted_cell = False
 
@@ -462,7 +454,7 @@ class ExcelAnalyzer:
                 sheet.sheet_properties.tabColor = self._YELLOW
 
             self._logger.info(
-                f"Completed processing sheet: {host_name}."
+                f"Analyzed sheet: {host_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
         workbook.save(excel_path)
@@ -497,8 +489,13 @@ class ExcelAnalyzer:
 
         new_order = yellow_sheets + other_sheets + gray_sheets
 
-        for sheet_name in new_order:
-            workbook.move_sheet(sheet_name, len(workbook.sheetnames))
+        total_sheets = len(workbook.sheetnames)
+        for current_sheet_number, sheet_name in enumerate(new_order, start=1):
+            workbook.move_sheet(sheet_name, total_sheets)
+            self._logger.info(
+                f"Reordered sheet: {sheet_name}."
+                f" ({current_sheet_number}/{total_sheets})"
+            )
 
         workbook.save(excel_path)
         workbook.close()
