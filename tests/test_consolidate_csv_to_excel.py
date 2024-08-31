@@ -134,14 +134,14 @@ def test_config_not_found(mock_logger: MagicMock) -> None:
         ConfigLoader(mock_logger, "non_existent_file.yaml")
 
 
-def test_get_processing_time_threshold_with_invalid_config(
+def test_get_processing_time_threshold_with_malformed_config(
     mock_logger: MagicMock, tmp_path: Path
 ) -> None:
-    malformed_yml_path = TestHelper.create_malformed_config_and_return_path(
+    malformed_config_path = TestHelper.create_malformed_config_and_return_path(
         tmp_path
     )
     with pytest.raises(SystemExit):
-        ConfigLoader(mock_logger, str(malformed_yml_path))
+        ConfigLoader(mock_logger, malformed_config_path)
 
 
 @pytest.mark.parametrize(
