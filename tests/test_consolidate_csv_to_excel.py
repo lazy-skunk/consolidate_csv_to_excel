@@ -226,3 +226,15 @@ def test_create_excel_file_path(
         )
         result = csv_consolidator.create_excel_file_path(date, targets)
         assert result == expected_path
+
+
+def test_create_excel_with_sentinel_sheet(
+    csv_consolidator: CSVConsolidator, tmp_path: Path
+) -> None:
+    excel_path = f"{tmp_path}/dummy_path.xlsx"
+
+    csv_consolidator.create_excel_with_sentinel_sheet(excel_path)
+    assert Path(excel_path).exists()
+
+    with pytest.raises(SystemExit):
+        csv_consolidator.create_excel_with_sentinel_sheet(excel_path)
