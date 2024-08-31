@@ -61,6 +61,7 @@ class DateHandler:
         if len(input_date) != 8:
             self._logger.error(
                 f"Date must be 8 digits in YYYYMMDD format: {input_date}."
+                "For a date range, please use the format YYYYMMDD-YYYYMMDD."
             )
             sys.exit(1)
 
