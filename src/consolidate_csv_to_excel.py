@@ -218,14 +218,6 @@ class CSVConsolidator:
         self._failed_count = 0
         self._failed_hosts: List[str] = []
 
-    def get_summary(self) -> Dict[str, int | List[str]]:
-        return {
-            "copied": self._copied_count,
-            "no_csv": self._no_csv_count,
-            "failed": self._failed_count,
-            "failed_hosts": self._failed_hosts,
-        }
-
     def _determine_file_name_suffix(self, targets: List[str]) -> str:
         if len(sys.argv) > 2:
             return "_".join(targets)
@@ -337,6 +329,14 @@ class CSVConsolidator:
             return
 
         self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
+
+    def get_summary(self) -> Dict[str, int | List[str]]:
+        return {
+            "copied": self._copied_count,
+            "no_csv": self._no_csv_count,
+            "failed": self._failed_count,
+            "failed_hosts": self._failed_hosts,
+        }
 
 
 class ExcelAnalyzer:
