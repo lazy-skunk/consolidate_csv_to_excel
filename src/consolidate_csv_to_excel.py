@@ -53,45 +53,36 @@ class CustomLogger:  # pragma: no cover
 
 class DateHandler:
     _DATE_FORMAT = "%Y%m%d"
+    _DATE_DELIMITER = "~"
+    _DATE_LENGTH = 8
 
     def __init__(self, logger: Logger) -> None:
         self._logger = logger
 
-    def _is_valid_date(self, input_date: str) -> bool:
-        if len(input_date) != 8:
+    def _parse_date(self, input_date: str) -> Optional[datetime.datetime]:
+        if len(input_date) != self._DATE_LENGTH or not input_date.isdigit():
             self._logger.error(
-                f"Date must be 8 digits in YYYYMMDD format: {input_date}."
-                "For a date range, please use the format YYYYMMDD-YYYYMMDD."
+                f"Date must be {self._DATE_LENGTH} digits in YYYYMMDD format:"
+                f" {input_date}."
+                " For a date range, please use the format YYYYMMDD~YYYYMMDD."
             )
             sys.exit(1)
 
-        try:
-            date = datetime.datetime.strptime(
-                input_date, DateHandler._DATE_FORMAT
-            )
-            if date > datetime.datetime.now():
-                self._logger.error(
-                    f"Future date specified: {input_date}."
-                    " Processing will be aborted."
-                )
-                sys.exit(1)
-            return True
-        except ValueError:
+        date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
+        if date > datetime.datetime.now():
             self._logger.error(
-                f"Invalid date format specified: {input_date}."
+                f"Future date specified: {input_date}."
                 " Processing will be aborted."
             )
             sys.exit(1)
 
+        return date
+
     def _generate_date_range(
-        self, start_date_str: str, end_date_str: str
+        self, start_date: datetime.datetime, end_date: datetime.datetime
     ) -> List[str]:
-        start_date = datetime.datetime.strptime(
-            start_date_str, DateHandler._DATE_FORMAT
-        )
-        end_date = datetime.datetime.strptime(
-            end_date_str, DateHandler._DATE_FORMAT
-        )
+        if start_date > end_date:
+            start_date, end_date = end_date, start_date
 
         current_date = start_date
         date_list = []
@@ -102,29 +93,31 @@ class DateHandler:
         return date_list
 
     def get_input_date_or_yesterday(self) -> List[str]:
-        DATE = 1
-        DATE_DELIMITER = "-"
+        DATE_INDEX = 1
 
-        if len(sys.argv) > 1:
-            input_date = sys.argv[DATE]
+        if len(sys.argv) > DATE_INDEX:
+            input_date = sys.argv[DATE_INDEX]
 
-            if DATE_DELIMITER in input_date:
-                start_date_str, end_date_str = input_date.split(DATE_DELIMITER)
+            if self._DATE_DELIMITER in input_date:
+                dates = input_date.split(self._DATE_DELIMITER)
 
-                if self._is_valid_date(start_date_str) and self._is_valid_date(
-                    end_date_str
-                ):
-                    if start_date_str > end_date_str:
-                        start_date_str, end_date_str = (
-                            end_date_str,
-                            start_date_str,
-                        )
-
-                    return self._generate_date_range(
-                        start_date_str, end_date_str
+                if len(dates) != 2:
+                    self._logger.error(
+                        f"Invalid date range format specified: {input_date}. "
+                        "Please use the format YYYYMMDD~YYYYMMDD."
                     )
-            elif self._is_valid_date(input_date):
-                return [input_date]
+                    sys.exit(1)
+
+                start_date_str, end_date_str = dates
+                start_date = self._parse_date(start_date_str)
+                end_date = self._parse_date(end_date_str)
+
+                if start_date and end_date:
+                    return self._generate_date_range(start_date, end_date)
+            else:
+                date = self._parse_date(input_date)
+                if date:
+                    return [date.strftime(DateHandler._DATE_FORMAT)]
 
         yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
         return [yesterday.strftime(DateHandler._DATE_FORMAT)]
