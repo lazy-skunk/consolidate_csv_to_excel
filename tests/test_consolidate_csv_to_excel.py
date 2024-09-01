@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import List, Type
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 import yaml
+from openpyxl import load_workbook
 
 from src.consolidate_csv_to_excel import (
     ConfigLoader,
@@ -21,6 +21,7 @@ class TestHelper:
     DATE_FORMAT = "%Y%m%d"
     YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(DATE_FORMAT)
     TOMORROW = (datetime.now() + timedelta(days=1)).strftime(DATE_FORMAT)
+    GRAY_WITH_TRANSPARENT = "007F7F7F"
 
     @staticmethod
     def create_temp_config_and_return_path(
@@ -257,26 +258,72 @@ def test_create_excel_with_sentinel_sheet(
         csv_consolidator.create_excel_with_sentinel_sheet(tmp_excel_path)
 
 
+@pytest.mark.parametrize(
+    "date, no_csv_found, exception",
+    [
+        ("19880209", False, None),
+        ("INVALID_DATE", True, None),
+        ("19880209", False, Exception),
+    ],
+)
 def test_search_and_append_csv_to_excel(
     csv_consolidator: CSVConsolidator,
     prepare_tmp_csv: None,
     prepare_excel_with_sentinel: None,
     tmp_path: Path,
     tmp_excel_path: str,
+    date: str,
+    no_csv_found: bool,
+    exception: type[Exception] | None,
 ) -> None:
     target_fullnames = [f"target_{i}" for i in range(3)]
 
     with patch(
         "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH", f"{tmp_path}"
     ):
-        csv_consolidator.search_and_append_csv_to_excel(
-            "19880209", target_fullnames, tmp_excel_path
-        )
+        if exception:
+            with patch("pandas.read_csv", side_effect=exception):
+                csv_consolidator.search_and_append_csv_to_excel(
+                    date, target_fullnames, tmp_excel_path
+                )
+                assert csv_consolidator._copied_count == 0
+                assert csv_consolidator._no_csv_count == 0
+                assert csv_consolidator._failed_count == 3
+                assert len(csv_consolidator._failed_hosts) == 3
+                return
+        else:
+            csv_consolidator.search_and_append_csv_to_excel(
+                date, target_fullnames, tmp_excel_path
+            )
 
-        with pd.ExcelFile(tmp_excel_path) as xls:
-            assert set(xls.sheet_names) == {
-                "SENTINEL_SHEET",
-                "target_0",
-                "target_1",
-                "target_2",
-            }
+    try:
+        workbook = load_workbook(tmp_excel_path)
+
+        assert set(workbook.sheetnames) == {
+            "SENTINEL_SHEET",
+            "target_0",
+            "target_1",
+            "target_2",
+        }
+
+        if no_csv_found:
+            for sheet_name in target_fullnames:
+                sheet = workbook[sheet_name]
+                assert (
+                    sheet.sheet_properties.tabColor.value
+                    == TestHelper.GRAY_WITH_TRANSPARENT
+                )
+            assert csv_consolidator._copied_count == 0
+            assert csv_consolidator._no_csv_count == 3
+            assert csv_consolidator._failed_count == 0
+            assert len(csv_consolidator._failed_hosts) == 0
+        else:
+            for sheet_name in target_fullnames:
+                sheet = workbook[sheet_name]
+                assert sheet.sheet_properties.tabColor is None
+            assert csv_consolidator._copied_count == 3
+            assert csv_consolidator._no_csv_count == 0
+            assert csv_consolidator._failed_count == 0
+            assert len(csv_consolidator._failed_hosts) == 0
+    finally:
+        workbook.close()
