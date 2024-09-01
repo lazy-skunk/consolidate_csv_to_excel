@@ -350,9 +350,6 @@ class ExcelAnalyzer:
         self._logger = logger
         self._hosts_to_check: set[str] = set()
 
-    def get_hosts_to_check(self) -> set:
-        return self._hosts_to_check
-
     def _highlight_cell(self, cell: Cell, color_code: str) -> None:
         pattern_fill = PatternFill(start_color=color_code, fill_type="solid")
         cell.fill = pattern_fill
@@ -509,6 +506,9 @@ class ExcelAnalyzer:
         self._logger.info(
             f"Reordering sheets completed for file: {excel_path}"
         )
+
+    def get_hosts_to_check(self) -> set:
+        return self._hosts_to_check
 
 
 def _save_daily_summary(
