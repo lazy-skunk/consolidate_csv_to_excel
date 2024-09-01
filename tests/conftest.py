@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
+from openpyxl import Workbook
 
 from src.consolidate_csv_to_excel import (
     ConfigLoader,
@@ -142,3 +143,24 @@ def prepare_tmp_excel(
             df = pd.read_csv(csv_file)
             sheet_name = f"target_{i}"
             df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+
+@pytest.fixture
+def prepare_tmp_excel_for_reordering(tmp_path_for_excel: Path) -> None:
+    try:
+        workbook = Workbook()
+
+        default_sheet = workbook.active
+        workbook.remove(default_sheet)
+
+        workbook.create_sheet("Other_Sheet")
+
+        gray_sheet = workbook.create_sheet("Gray_Sheet")
+        gray_sheet.sheet_properties.tabColor = "007F7F7F"
+
+        yellow_sheet = workbook.create_sheet("Yellow_Sheet")
+        yellow_sheet.sheet_properties.tabColor = "00FFFF7F"
+
+        workbook.save(tmp_path_for_excel)
+    finally:
+        workbook.close()

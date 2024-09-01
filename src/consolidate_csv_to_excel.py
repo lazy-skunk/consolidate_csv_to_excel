@@ -488,8 +488,6 @@ class ExcelAnalyzer:
                     yellow_sheets.append(sheet_name)
                 elif sheet_color_value == self._GRAY_WITH_TRANSPARENT:
                     gray_sheets.append(sheet_name)
-                else:
-                    other_sheets.append(sheet_name)
 
         new_order = yellow_sheets + other_sheets + gray_sheets
 

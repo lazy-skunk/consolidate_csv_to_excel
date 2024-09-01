@@ -404,3 +404,25 @@ def test_highlight_cells_and_sheet_tabs(
                 assert not has_highlighted_cells
     finally:
         workbook.close()
+
+
+def test_reorder_sheets_by_color(
+    excel_analyzer: ExcelAnalyzer,
+    prepare_tmp_excel_for_reordering: None,
+    tmp_path_for_excel: str,
+) -> None:
+    try:
+        workbook = load_workbook(tmp_path_for_excel)
+        initial_order = workbook.sheetnames
+        assert initial_order == ["Other_Sheet", "Gray_Sheet", "Yellow_Sheet"]
+
+        excel_analyzer.reorder_sheets_by_color(tmp_path_for_excel)
+
+        workbook = load_workbook(tmp_path_for_excel)
+        reordered_sheet_names = workbook.sheetnames
+
+        expected_order = ["Yellow_Sheet", "Other_Sheet", "Gray_Sheet"]
+
+        assert reordered_sheet_names == expected_order
+    finally:
+        workbook.close()
