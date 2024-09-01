@@ -426,3 +426,18 @@ def test_reorder_sheets_by_color(
         assert reordered_sheet_names == expected_order
     finally:
         workbook.close()
+
+
+def test_get_hosts_to_check(
+    excel_analyzer: ExcelAnalyzer,
+    prepare_tmp_excel: None,
+    tmp_path_for_excel: str,
+) -> None:
+    threshold = 4
+
+    excel_analyzer.highlight_cells_and_sheet_tabs(
+        tmp_path_for_excel, threshold
+    )
+    hosts_to_check = excel_analyzer.get_hosts_to_check()
+
+    assert hosts_to_check == {"target_1", "target_2", "target_3"}

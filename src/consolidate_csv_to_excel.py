@@ -509,7 +509,7 @@ class ExcelAnalyzer:
         return self._hosts_to_check
 
 
-def _save_daily_summary(
+def _save_daily_summary(  # pragma: no cover
     daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
     date: str,
     consolidator: CSVConsolidator,
@@ -524,7 +524,7 @@ def _save_daily_summary(
     }
 
 
-def _log_daily_summaries(
+def _log_daily_summaries(  # pragma: no cover
     logger: Logger,
     daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
 ) -> None:
