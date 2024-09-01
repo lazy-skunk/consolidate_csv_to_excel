@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -76,11 +78,67 @@ def prepare_tmp_excel_with_sentinel_and_dummy(
 
 @pytest.fixture
 def prepare_tmp_csv(tmp_path: Path) -> None:
-    for i in range(3):
+    random_keys = [None, True, None, True]
+    for i in range(4):
+        data = []
+        valid_data = []
+        invalid_data = []
+
         csv_file = f"{tmp_path}/target_{i}/test_19880209.csv"
 
         csv_directory = os.path.dirname(csv_file)
         os.makedirs(csv_directory, exist_ok=True)
 
-        df = pd.DataFrame({"column1": [1, 2, 3], "column2": ["a", "b", "c"]})
+        date_a = datetime.now() - timedelta(seconds=i)
+        date_b = datetime.now() + timedelta(seconds=i)
+        processing_time = int((date_b - date_a).total_seconds())
+        json_list = [
+            {
+                "date_a": date_a.isoformat(),
+                "date_b": date_b.isoformat(),
+                "time_difference": f"{processing_time}s",
+                "random_key": random_keys[i],
+            }
+        ]
+
+        stringified_json = json.dumps(json_list)
+        valid_data.append(
+            [
+                date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                f"{processing_time}s",
+                stringified_json,
+            ]
+        )
+
+        invalid_data.append(
+            [
+                date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                "INVALID_PROCESSING_TIME",
+                "INVALID_JSON",
+            ]
+        )
+
+        data = valid_data + invalid_data
+
+        df = pd.DataFrame(
+            data, columns=["date_a", "date_b", "processing_time", "random_key"]
+        )
         df.to_csv(csv_file, index=False)
+
+
+@pytest.fixture
+def prepare_tmp_excel(
+    prepare_tmp_csv: None,
+    tmp_path: Path,
+    tmp_path_for_excel: str,
+) -> None:
+    with pd.ExcelWriter(
+        tmp_path_for_excel, engine="openpyxl", mode="w"
+    ) as writer:
+        for i in range(4):
+            csv_file = f"{tmp_path}/target_{i}/test_19880209.csv"
+            df = pd.read_csv(csv_file)
+            sheet_name = f"target_{i}"
+            df.to_excel(writer, sheet_name=sheet_name, index=False)

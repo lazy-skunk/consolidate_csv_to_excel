@@ -13,6 +13,7 @@ from src.consolidate_csv_to_excel import (
     ConfigLoader,
     CSVConsolidator,
     DateHandler,
+    ExcelAnalyzer,
     TargetHandler,
 )
 
@@ -276,7 +277,7 @@ def test_search_and_append_csv_to_excel(
     no_csv_found: bool,
     exception: type[Exception] | None,
 ) -> None:
-    target_fullnames = [f"target_{i}" for i in range(3)]
+    target_fullnames = [f"target_{i}" for i in range(4)]
 
     with patch(
         "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH", f"{tmp_path}"
@@ -288,8 +289,8 @@ def test_search_and_append_csv_to_excel(
                 )
                 assert csv_consolidator._copied_count == 0
                 assert csv_consolidator._no_csv_count == 0
-                assert csv_consolidator._failed_count == 3
-                assert len(csv_consolidator._failed_hosts) == 3
+                assert csv_consolidator._failed_count == 4
+                assert len(csv_consolidator._failed_hosts) == 4
                 return
         else:
             csv_consolidator.search_and_append_csv_to_excel(
@@ -304,6 +305,7 @@ def test_search_and_append_csv_to_excel(
             "target_0",
             "target_1",
             "target_2",
+            "target_3",
         }
 
         if no_csv_found:
@@ -314,14 +316,14 @@ def test_search_and_append_csv_to_excel(
                     == TestHelper.GRAY_WITH_TRANSPARENT
                 )
             assert csv_consolidator._copied_count == 0
-            assert csv_consolidator._no_csv_count == 3
+            assert csv_consolidator._no_csv_count == 4
             assert csv_consolidator._failed_count == 0
             assert len(csv_consolidator._failed_hosts) == 0
         else:
             for sheet_name in target_fullnames:
                 sheet = workbook[sheet_name]
                 assert sheet.sheet_properties.tabColor is None
-            assert csv_consolidator._copied_count == 3
+            assert csv_consolidator._copied_count == 4
             assert csv_consolidator._no_csv_count == 0
             assert csv_consolidator._failed_count == 0
             assert len(csv_consolidator._failed_hosts) == 0
@@ -370,3 +372,35 @@ def test_get_summary(csv_consolidator: CSVConsolidator) -> None:
         "failed": 3,
         "failed_hosts": ["host1", "host2"],
     }
+
+
+def test_highlight_cells_and_sheet_tabs(
+    excel_analyzer: ExcelAnalyzer,
+    prepare_tmp_excel: None,
+    tmp_path_for_excel: str,
+) -> None:
+    threshold = 4  # 0, 2, 4, 6
+
+    excel_analyzer.highlight_cells_and_sheet_tabs(
+        tmp_path_for_excel, threshold
+    )
+    NO_COLOR_WITH_TRANSPARENT = "00000000"
+    workbook = load_workbook(tmp_path_for_excel)
+    try:
+        for sheet_name in workbook.sheetnames:
+            sheet = workbook[sheet_name]
+
+            has_yellow_tab = sheet.sheet_properties.tabColor is not None
+
+            has_highlighted_cells = any(
+                cell.fill.start_color.rgb != NO_COLOR_WITH_TRANSPARENT
+                for row in sheet.iter_rows(min_row=2)
+                for cell in row
+            )
+
+            if has_yellow_tab:
+                assert has_highlighted_cells
+            else:
+                assert not has_highlighted_cells
+    finally:
+        workbook.close()
