@@ -216,7 +216,7 @@ def test_get_existing_host_fullnames(
 
 
 @pytest.mark.parametrize(
-    "argv, expected",
+    "argv, expected_suffix",
     [
         (["test.py", "arg1", "arg2"], "target1_target2"),
         (["test.py"], "config"),
@@ -226,9 +226,9 @@ def test_create_excel_file_path(
     csv_consolidator: CSVConsolidator,
     tmp_path: Path,
     argv: List[str],
-    expected: str,
+    expected_suffix: str,
 ) -> None:
-    date = "19880209"
+    TestHelper.TODAY
     targets = ["target1", "target2"]
 
     with (
@@ -238,8 +238,15 @@ def test_create_excel_file_path(
             tmp_path,
         ),
     ):
-        expected = f"{tmp_path}/{date}/{date}_{expected}.xlsx"
-        result = csv_consolidator.create_excel_file_path(date, targets)
+        expected = os.path.join(
+            tmp_path,
+            TestHelper.TODAY,
+            f"{TestHelper.TODAY}_{expected_suffix}.xlsx",
+        )
+
+        result = csv_consolidator.create_excel_file_path(
+            TestHelper.TODAY, targets
+        )
         assert result == expected
 
 
