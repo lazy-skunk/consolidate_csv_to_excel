@@ -89,7 +89,7 @@ def test_get_input_date_or_yesterday(
         (["test.py", "invalid_date"]),
     ],
 )
-def test_get_input_date_or_yesterday_invalid_dates(
+def test_get_input_date_or_yesterday_with_invalid_dates(
     date_handler: DateHandler, argv: List[str]
 ) -> None:
     with patch.object(sys, "argv", argv):
@@ -267,14 +267,13 @@ def test_search_and_append_csv_to_excel(
     tmp_path: Path,
     tmp_excel_path: str,
 ) -> None:
-    date = "19880209"
     target_fullnames = [f"target_{i}" for i in range(3)]
 
     with patch(
         "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH", f"{tmp_path}"
     ):
         csv_consolidator.search_and_append_csv_to_excel(
-            date, target_fullnames, tmp_excel_path
+            "19880209", target_fullnames, tmp_excel_path
         )
 
         with pd.ExcelFile(tmp_excel_path) as xls:
