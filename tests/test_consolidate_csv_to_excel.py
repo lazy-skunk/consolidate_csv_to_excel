@@ -249,13 +249,13 @@ def test_create_excel_file_path(
 
 
 def test_create_excel_with_sentinel_sheet(
-    csv_consolidator: CSVConsolidator, tmp_excel_path: str
+    csv_consolidator: CSVConsolidator, tmp_path_for_excel: str
 ) -> None:
-    csv_consolidator.create_excel_with_sentinel_sheet(tmp_excel_path)
-    assert Path(tmp_excel_path).exists()
+    csv_consolidator.create_excel_with_sentinel_sheet(tmp_path_for_excel)
+    assert Path(tmp_path_for_excel).exists()
 
     with pytest.raises(SystemExit):
-        csv_consolidator.create_excel_with_sentinel_sheet(tmp_excel_path)
+        csv_consolidator.create_excel_with_sentinel_sheet(tmp_path_for_excel)
 
 
 @pytest.mark.parametrize(
@@ -269,9 +269,9 @@ def test_create_excel_with_sentinel_sheet(
 def test_search_and_append_csv_to_excel(
     csv_consolidator: CSVConsolidator,
     prepare_tmp_csv: None,
-    prepare_excel_with_sentinel: None,
+    prepare_tmp_excel_with_sentinel: None,
     tmp_path: Path,
-    tmp_excel_path: str,
+    tmp_path_for_excel: str,
     date: str,
     no_csv_found: bool,
     exception: type[Exception] | None,
@@ -284,7 +284,7 @@ def test_search_and_append_csv_to_excel(
         if exception:
             with patch("pandas.read_csv", side_effect=exception):
                 csv_consolidator.search_and_append_csv_to_excel(
-                    date, target_fullnames, tmp_excel_path
+                    date, target_fullnames, tmp_path_for_excel
                 )
                 assert csv_consolidator._copied_count == 0
                 assert csv_consolidator._no_csv_count == 0
@@ -293,11 +293,11 @@ def test_search_and_append_csv_to_excel(
                 return
         else:
             csv_consolidator.search_and_append_csv_to_excel(
-                date, target_fullnames, tmp_excel_path
+                date, target_fullnames, tmp_path_for_excel
             )
 
     try:
-        workbook = load_workbook(tmp_excel_path)
+        workbook = load_workbook(tmp_path_for_excel)
 
         assert set(workbook.sheetnames) == {
             "SENTINEL_SHEET",
@@ -327,3 +327,46 @@ def test_search_and_append_csv_to_excel(
             assert len(csv_consolidator._failed_hosts) == 0
     finally:
         workbook.close()
+
+
+def test_remove_sentinel_sheet_exists(
+    csv_consolidator: CSVConsolidator,
+    mock_logger: MagicMock,
+    prepare_tmp_excel_with_sentinel_and_dummy: None,
+    tmp_path_for_excel: str,
+) -> None:
+    csv_consolidator.remove_sentinel_sheet(tmp_path_for_excel)
+
+    try:
+        workbook = load_workbook(tmp_path_for_excel)
+        assert "SENTINEL_SHEET" not in workbook.sheetnames
+    finally:
+        workbook.close()
+
+    csv_consolidator.remove_sentinel_sheet(tmp_path_for_excel)
+    mock_logger.warning.assert_called_once_with(
+        f"SENTINEL_SHEET not found in {tmp_path_for_excel}."
+    )
+
+
+def test_get_summary(csv_consolidator: CSVConsolidator) -> None:
+    summary = csv_consolidator.get_summary()
+    assert summary == {
+        "copied": 0,
+        "no_csv": 0,
+        "failed": 0,
+        "failed_hosts": [],
+    }
+
+    csv_consolidator._copied_count = 1
+    csv_consolidator._no_csv_count = 2
+    csv_consolidator._failed_count = 3
+    csv_consolidator._failed_hosts = ["host1", "host2"]
+
+    summary = csv_consolidator.get_summary()
+    assert summary == {
+        "copied": 1,
+        "no_csv": 2,
+        "failed": 3,
+        "failed_hosts": ["host1", "host2"],
+    }
