@@ -35,8 +35,8 @@ for i in range(10000):
         ]
     )
 
-_df = pd.DataFrame(
+df = pd.DataFrame(
     _data, columns=["Date A", "Date B", "Time Difference", "JSON"]
 )
 
-_df.to_csv("test_20380101.csv", index=False)
+df.to_csv("test_20380101.csv", index=False)
