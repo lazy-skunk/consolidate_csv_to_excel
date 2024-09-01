@@ -47,7 +47,7 @@ def tmp_excel_path(tmp_path: Path) -> str:
 
 
 @pytest.fixture
-def prepare_excel_with_sentinel(tmp_path: Path) -> None:
+def prepare_tmp_excel_with_sentinel(tmp_path: Path) -> None:
     excel_path = str(tmp_path / "output.xlsx")
 
     with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
