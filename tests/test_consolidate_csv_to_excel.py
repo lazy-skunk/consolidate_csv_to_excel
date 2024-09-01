@@ -20,7 +20,6 @@ from src.consolidate_csv_to_excel import (
 class TestHelper:
     DATE_FORMAT = "%Y%m%d"
     YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(DATE_FORMAT)
-    TODAY = datetime.now().strftime(DATE_FORMAT)
     TOMORROW = (datetime.now() + timedelta(days=1)).strftime(DATE_FORMAT)
 
     @staticmethod
@@ -228,7 +227,7 @@ def test_create_excel_file_path(
     argv: List[str],
     expected_suffix: str,
 ) -> None:
-    TestHelper.TODAY
+    date = "19880209"
     targets = ["target1", "target2"]
 
     with (
@@ -240,13 +239,11 @@ def test_create_excel_file_path(
     ):
         expected = os.path.join(
             tmp_path,
-            TestHelper.TODAY,
-            f"{TestHelper.TODAY}_{expected_suffix}.xlsx",
+            date,
+            f"{date}_{expected_suffix}.xlsx",
         )
 
-        result = csv_consolidator.create_excel_file_path(
-            TestHelper.TODAY, targets
-        )
+        result = csv_consolidator.create_excel_file_path(date, targets)
         assert result == expected
 
 
