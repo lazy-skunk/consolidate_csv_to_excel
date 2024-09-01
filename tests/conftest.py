@@ -10,6 +10,7 @@ from src.consolidate_csv_to_excel import (
     ConfigLoader,
     CSVConsolidator,
     DateHandler,
+    ExcelAnalyzer,
     TargetHandler,
 )
 
@@ -39,6 +40,11 @@ def target_handler(
 @pytest.fixture
 def csv_consolidator(mock_logger: MagicMock) -> CSVConsolidator:
     return CSVConsolidator(mock_logger)
+
+
+@pytest.fixture
+def excel_analyzer(mock_logger: MagicMock) -> ExcelAnalyzer:
+    return ExcelAnalyzer(mock_logger)
 
 
 @pytest.fixture
