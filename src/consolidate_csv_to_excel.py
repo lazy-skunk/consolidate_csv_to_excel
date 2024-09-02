@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 import yaml
-from openpyxl import load_workbook
+from openpyxl import Workbook
 from openpyxl.cell import Cell
 from openpyxl.styles import PatternFill
 
@@ -62,7 +62,7 @@ class DateHandler:
     def _parse_date(self, input_date: str) -> Optional[datetime.datetime]:
         if len(input_date) != self._DATE_LENGTH or not input_date.isdigit():
             self._logger.error(
-                f"Date must be {self._DATE_LENGTH} digits in YYYYMMDD format:"
+                f"Date must be {self._DATE_LENGTH} digits in YYYYMMDD format :"
                 f" {input_date}."
                 " For a date range, please use the format YYYYMMDD~YYYYMMDD."
             )
@@ -70,10 +70,7 @@ class DateHandler:
 
         date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
         if date > datetime.datetime.now():
-            self._logger.error(
-                f"Future date specified: {input_date}."
-                " Processing will be aborted."
-            )
+            self._logger.error(f"Future date specified: {input_date}.")
             sys.exit(1)
 
         return date
@@ -135,19 +132,15 @@ class ConfigLoader:
         try:
             with open(self._config_file_path, "r") as file:
                 config = yaml.safe_load(file)
-
-            self._logger.info("Configuration file loaded successfully.")
             return config
         except FileNotFoundError:
             self._logger.error(
-                f"Configuration file '{self._config_file_path}' not found."
-                " Processing will be aborted."
+                f"Configuration file {self._config_file_path} not found."
             )
             sys.exit(1)
         except yaml.YAMLError as e:
             self._logger.error(
-                f"Error parsing the configuration file: {e}."
-                " Processing will be aborted."
+                f"Error parsing {self._config_file_path} : {e}."
             )
             sys.exit(1)
 
@@ -163,7 +156,6 @@ class ConfigLoader:
             self._logger.error(
                 "Invalid value for 'processing_time_threshold_seconds'"
                 " in config file. Please provide a valid integer value."
-                " Processing will be aborted."
             )
             sys.exit(1)
 
@@ -202,9 +194,7 @@ class TargetHandler:
                 )
 
         if not host_fullnames:
-            self._logger.error(
-                "No valid targets found. Processing will be aborted."
-            )
+            self._logger.error("No valid targets found.")
             sys.exit(1)
 
         return host_fullnames
@@ -230,25 +220,13 @@ class CSVConsolidator:
         excel_path = os.path.join(_EXCEL_FOLDER_PATH, date, excel_name)
         return excel_path
 
-    def create_excel_with_sentinel_sheet(self, excel_path: str) -> None:
-        if os.path.exists(excel_path):
-            self._logger.warning(
-                f"Excel file '{excel_path}' already exists."
-                " Processing will be aborted."
-            )
-            sys.exit(1)
-
+    def create_excel_directory(self, excel_path: str) -> None:
         excel_directory = os.path.dirname(excel_path)
         os.makedirs(excel_directory, exist_ok=True)
 
-        with pd.ExcelWriter(excel_path, engine="openpyxl") as writer:
-            pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
-                writer, sheet_name="SENTINEL_SHEET", index=False, header=False
-            )
-
-        self._logger.info(
-            f"Initialized {excel_path} with a sentinel sheet"
-            " for further writing."
+    def create_sentinel_sheet(self, writer: pd.ExcelWriter) -> None:
+        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
+            writer, sheet_name="SENTINEL_SHEET", index=False, header=False
         )
 
     def _get_merged_csv_path(
@@ -258,10 +236,8 @@ class CSVConsolidator:
         csv_path = os.path.join(target_folder_path, csv_name)
 
         if os.path.exists(csv_path):
-            self._logger.info(f"{csv_path} is found.")
             return csv_path
         else:
-            self._logger.info(f"{csv_path} is not found.")
             return None
 
     def _copy_csv_to_excel(
@@ -301,34 +277,25 @@ class CSVConsolidator:
             self._create_no_csv_sheet_to_excel(writer, target_name)
 
     def search_and_append_csv_to_excel(
-        self,
-        date: str,
-        target_fullnames: List[str],
-        excel_path: str,
+        self, writer: pd.ExcelWriter, date: str, target_fullnames: List[str]
     ) -> None:
         total_targets = len(target_fullnames)
-        with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
-            for current_target_number, target_name in enumerate(
-                target_fullnames, start=1
-            ):
-                target_folder_path = os.path.join(
-                    _TARGET_FOLDERS_BASE_PATH, target_name
-                )
-                self._add_sheet_for_target(writer, target_folder_path, date)
-                self._logger.info(
-                    f"Added sheet: {target_name}."
-                    f" ({current_target_number}/{total_targets})"
-                )
+        for current_target_number, target_name in enumerate(
+            target_fullnames, start=1
+        ):
+            target_folder_path = os.path.join(
+                _TARGET_FOLDERS_BASE_PATH, target_name
+            )
+            self._add_sheet_for_target(writer, target_folder_path, date)
+            self._logger.info(
+                f"Added sheet: {target_name}."
+                f" ({current_target_number}/{total_targets})"
+            )
 
-    def remove_sentinel_sheet(self, excel_path: str) -> None:
-        workbook = load_workbook(excel_path)
+    def remove_sentinel_sheet(self, workbook: Workbook) -> None:
         if "SENTINEL_SHEET" in workbook.sheetnames:
             del workbook["SENTINEL_SHEET"]
-            workbook.save(excel_path)
-            self._logger.info(f"Removed SENTINEL_SHEET from {excel_path}.")
             return
-
-        self._logger.warning(f"SENTINEL_SHEET not found in {excel_path}.")
 
     def get_summary(self) -> Dict[str, int | List[str]]:
         return {
@@ -400,40 +367,40 @@ class ExcelAnalyzer:
 
         return False
 
-    def _check_and_highlight_json_key(
+    def _check_and_highlight_alert_detail(
         self,
         row: tuple[Cell, ...],
-        json_column: int,
+        alert_detail_column: int,
     ) -> bool:
-        json_cell = row[json_column]
-        json_value = json_cell.value
+        alert_detail_cell = row[alert_detail_column]
+        alert_detail_value = alert_detail_cell.value
 
-        if json_value:
+        if alert_detail_value:
             try:
-                json_data = json.loads(json_value)
-                if any(item.get("random_key") is True for item in json_data):
-                    self._highlight_cell(json_cell, self._YELLOW)
+                alert_detail_data = json.loads(alert_detail_value)
+                if any(
+                    item.get("random_key") is True
+                    for item in alert_detail_data
+                ):
+                    self._highlight_cell(alert_detail_cell, self._YELLOW)
                     return True
             except json.JSONDecodeError:
                 self._logger.warning(
-                    f"Invalid JSON format found: {json_value}"
+                    f"Invalid JSON format found: {alert_detail_value}"
                 )
         return False
 
     def highlight_cells_and_sheet_tabs(
-        self, excel_path: str, threshold: int
+        self, workbook: Workbook, threshold: int
     ) -> None:
-        self._logger.info(
-            f"Highlighting cells and sheet tabs started for file: {excel_path}"
-        )
-        workbook = load_workbook(excel_path)
 
         HEADER_ROW = 1
         DATA_START_ROW = HEADER_ROW + 1
         ZERO_BASED_INDEX_OFFSET = 1
         PROCESSING_TIME_COLUMN = 3 - ZERO_BASED_INDEX_OFFSET
-        JSON_COLUMN = 4 - ZERO_BASED_INDEX_OFFSET
+        ALERT_DETAIL_COLUMN = 4 - ZERO_BASED_INDEX_OFFSET
         total_sheets = len(workbook.sheetnames)
+
         for current_sheet_number, host_name in enumerate(
             workbook.sheetnames, start=1
         ):
@@ -446,11 +413,13 @@ class ExcelAnalyzer:
                         row, PROCESSING_TIME_COLUMN, threshold
                     )
                 )
-                json_key_highlighted = self._check_and_highlight_json_key(
-                    row, JSON_COLUMN
+                alert_detail_highlighted = (
+                    self._check_and_highlight_alert_detail(
+                        row, ALERT_DETAIL_COLUMN
+                    )
                 )
 
-                if processing_time_highlighted or json_key_highlighted:
+                if processing_time_highlighted or alert_detail_highlighted:
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
@@ -461,19 +430,8 @@ class ExcelAnalyzer:
                 f"Analyzed sheet: {host_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
-        workbook.save(excel_path)
-        workbook.close()
-        self._logger.info(
-            "Highlighting cells and sheet tabs completed"
-            f" for file: {excel_path}"
-        )
 
-    def reorder_sheets_by_color(self, excel_path: str) -> None:
-        self._logger.info(
-            f"Reordering sheets by color started for file: {excel_path}"
-        )
-        workbook = load_workbook(excel_path)
-
+    def _create_new_order(self, workbook: Workbook) -> List[str]:
         yellow_sheets = []
         gray_sheets = []
         other_sheets = []
@@ -488,8 +446,10 @@ class ExcelAnalyzer:
                     yellow_sheets.append(sheet_name)
                 elif sheet_color_value == self._GRAY_WITH_TRANSPARENT:
                     gray_sheets.append(sheet_name)
+        return yellow_sheets + other_sheets + gray_sheets
 
-        new_order = yellow_sheets + other_sheets + gray_sheets
+    def reorder_sheets_by_color(self, workbook: Workbook) -> None:
+        new_order = self._create_new_order(workbook)
 
         total_sheets = len(workbook.sheetnames)
         for current_sheet_number, sheet_name in enumerate(new_order, start=1):
@@ -498,12 +458,6 @@ class ExcelAnalyzer:
                 f"Reordered sheet: {sheet_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
-
-        workbook.save(excel_path)
-        workbook.close()
-        self._logger.info(
-            f"Reordering sheets completed for file: {excel_path}"
-        )
 
     def get_hosts_to_check(self) -> set:
         return self._hosts_to_check
@@ -577,19 +531,22 @@ if __name__ == "__main__":  # pragma: no cover
 
     for date in date_range:
         consolidator = CSVConsolidator(logger)
-
         excel_path = consolidator.create_excel_file_path(date, targets)
-        consolidator.create_excel_with_sentinel_sheet(excel_path)
-        consolidator.search_and_append_csv_to_excel(
-            date, target_fullnames, excel_path
-        )
-        consolidator.remove_sentinel_sheet(excel_path)
+        consolidator.create_excel_directory(excel_path)
 
-        excel_analyzer = ExcelAnalyzer(logger)
-        excel_analyzer.highlight_cells_and_sheet_tabs(
-            excel_path, processing_time_threshold
-        )
-        excel_analyzer.reorder_sheets_by_color(excel_path)
+        with pd.ExcelWriter(excel_path, engine="openpyxl", mode="w") as writer:
+            workbook = writer.book
+            consolidator.create_sentinel_sheet(writer)
+            consolidator.search_and_append_csv_to_excel(
+                writer, date, target_fullnames
+            )
+            consolidator.remove_sentinel_sheet(workbook)
+
+            excel_analyzer = ExcelAnalyzer(logger)
+            excel_analyzer.highlight_cells_and_sheet_tabs(
+                workbook, processing_time_threshold
+            )
+            excel_analyzer.reorder_sheets_by_color(workbook)
 
         _save_daily_summary(
             daily_summaries, date, consolidator, excel_analyzer
