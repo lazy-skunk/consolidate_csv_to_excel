@@ -5,7 +5,7 @@ import os
 import sys
 from logging import Logger
 from logging.handlers import RotatingFileHandler
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 import pandas as pd
 import yaml
@@ -59,7 +59,7 @@ class DateHandler:
     def __init__(self, logger: Logger) -> None:
         self._logger = logger
 
-    def _parse_date(self, input_date: str) -> Optional[datetime.datetime]:
+    def _parse_date(self, input_date: str) -> datetime.datetime | None:
         if len(input_date) != self._DATE_LENGTH or not input_date.isdigit():
             error_message = (
                 f"Date must be {self._DATE_LENGTH} digits in YYYYMMDD format :"
@@ -229,9 +229,7 @@ class FileUtility:
         os.makedirs(directory_for_file, exist_ok=True)
 
     @staticmethod
-    def get_merged_csv_path(
-        target_folder_path: str, date: str
-    ) -> Optional[str]:
+    def get_merged_csv_path(target_folder_path: str, date: str) -> str | None:
         csv_name = f"test_{date}.csv"
         csv_path = os.path.join(target_folder_path, csv_name)
 
