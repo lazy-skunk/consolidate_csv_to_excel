@@ -66,12 +66,12 @@ class DateHandler:
                 f" {input_date}."
                 " For a date range, please use the format YYYYMMDD~YYYYMMDD."
             )
-            sys.exit(1)
+            raise
 
         date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
         if date > datetime.datetime.now():
             self._logger.error(f"Future date specified: {input_date}.")
-            sys.exit(1)
+            raise
 
         return date
 
@@ -103,7 +103,7 @@ class DateHandler:
                         f"Invalid date range format specified: {input_date}. "
                         "Please use the format YYYYMMDD~YYYYMMDD."
                     )
-                    sys.exit(1)
+                    raise
 
                 start_date_str, end_date_str = dates
                 start_date = self._parse_date(start_date_str)
@@ -132,17 +132,21 @@ class ConfigLoader:
         try:
             with open(self._config_file_path, "r") as file:
                 config = yaml.safe_load(file)
+            self._logger.info(
+                f"Configuration file {self._config_file_path}"
+                " loaded successfully."
+            )
             return config
         except FileNotFoundError:
             self._logger.error(
                 f"Configuration file {self._config_file_path} not found."
             )
-            sys.exit(1)
+            raise
         except yaml.YAMLError as e:
             self._logger.error(
                 f"Error parsing {self._config_file_path} : {e}."
             )
-            sys.exit(1)
+            raise
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._config.get(key, default)
@@ -157,7 +161,7 @@ class ConfigLoader:
                 "Invalid value for 'processing_time_threshold_seconds'"
                 " in config file. Please provide a valid integer value."
             )
-            sys.exit(1)
+            raise
 
 
 class TargetHandler:
@@ -195,42 +199,34 @@ class TargetHandler:
 
         if not host_fullnames:
             self._logger.error("No valid targets found.")
-            sys.exit(1)
+            raise
 
         return host_fullnames
 
 
-class CSVConsolidator:
-    def __init__(self, logger: Logger) -> None:
-        self._logger = logger
-        self._copied_count = 0
-        self._no_csv_count = 0
-        self._failed_count = 0
-        self._failed_hosts: List[str] = []
-
-    def _determine_file_name_suffix(self, targets: List[str]) -> str:
+class FileUtility:
+    @staticmethod
+    def determine_file_name_suffix(targets: List[str]) -> str:
         if len(sys.argv) > 2:
             return "_".join(targets)
         else:
             return "config"
 
-    def create_excel_file_path(self, date: str, targets: List[str]) -> str:
-        file_name_suffix = self._determine_file_name_suffix(targets)
+    @staticmethod
+    def create_excel_file_path(date: str, targets: List[str]) -> str:
+        file_name_suffix = FileUtility.determine_file_name_suffix(targets)
         excel_name = f"{date}_{file_name_suffix}.xlsx"
         excel_path = os.path.join(_EXCEL_FOLDER_PATH, date, excel_name)
         return excel_path
 
-    def create_excel_directory(self, excel_path: str) -> None:
-        excel_directory = os.path.dirname(excel_path)
-        os.makedirs(excel_directory, exist_ok=True)
+    @staticmethod
+    def create_directory(file_path: str) -> None:
+        directory_for_file = os.path.dirname(file_path)
+        os.makedirs(directory_for_file, exist_ok=True)
 
-    def create_sentinel_sheet(self, writer: pd.ExcelWriter) -> None:
-        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
-            writer, sheet_name="SENTINEL_SHEET", index=False, header=False
-        )
-
-    def _get_merged_csv_path(
-        self, target_folder_path: str, date: str
+    @staticmethod
+    def get_merged_csv_path(
+        target_folder_path: str, date: str
     ) -> Optional[str]:
         csv_name = f"test_{date}.csv"
         csv_path = os.path.join(target_folder_path, csv_name)
@@ -240,44 +236,62 @@ class CSVConsolidator:
         else:
             return None
 
-    def _copy_csv_to_excel(
-        self, writer: pd.ExcelWriter, csv_path: str, target_name: str
+
+class CSVConsolidator:
+    def __init__(
+        self, writer: pd.ExcelWriter, workbook: Workbook, logger: Logger
     ) -> None:
+        self._writer = writer
+        self._workbook = workbook
+        self._logger = logger
+
+        self._copied_count = 0
+        self._no_csv_count = 0
+        self._failed_count = 0
+        self._failed_hosts: List[str] = []
+
+    def create_sentinel_sheet(self) -> None:
+        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
+            self._writer,
+            sheet_name="SENTINEL_SHEET",
+            index=False,
+            header=False,
+        )
+
+    def _copy_csv_to_excel(self, csv_path: str, target_name: str) -> None:
         try:
             df = pd.read_csv(csv_path)
-            df.to_excel(writer, sheet_name=target_name, index=False)
+            df.to_excel(self._writer, sheet_name=target_name, index=False)
             self._copied_count += 1
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
             self._failed_count += 1
             self._failed_hosts.append(target_name)
 
-    def _create_no_csv_sheet_to_excel(
-        self, writer: pd.ExcelWriter, target_name: str
-    ) -> None:
+    def _create_no_csv_sheet_to_excel(self, target_name: str) -> None:
         df_for_not_found = pd.DataFrame({"A": ["No CSV file found."]})
         df_for_not_found.to_excel(
-            writer, sheet_name=target_name, index=False, header=False
+            self._writer, sheet_name=target_name, index=False, header=False
         )
 
         GRAY = "7F7F7F"
-        writer.sheets[target_name].sheet_properties.tabColor = GRAY
+        self._writer.sheets[target_name].sheet_properties.tabColor = GRAY
 
         self._no_csv_count += 1
 
     def _add_sheet_for_target(
-        self, writer: pd.ExcelWriter, target_folder_path: str, date: str
+        self, target_folder_path: str, date: str
     ) -> None:
-        csv_path = self._get_merged_csv_path(target_folder_path, date)
+        csv_path = FileUtility.get_merged_csv_path(target_folder_path, date)
         target_name = os.path.basename(target_folder_path)
 
         if csv_path:
-            self._copy_csv_to_excel(writer, csv_path, target_name)
+            self._copy_csv_to_excel(csv_path, target_name)
         else:
-            self._create_no_csv_sheet_to_excel(writer, target_name)
+            self._create_no_csv_sheet_to_excel(target_name)
 
     def search_and_append_csv_to_excel(
-        self, writer: pd.ExcelWriter, date: str, target_fullnames: List[str]
+        self, date: str, target_fullnames: List[str]
     ) -> None:
         total_targets = len(target_fullnames)
         for current_target_number, target_name in enumerate(
@@ -286,15 +300,15 @@ class CSVConsolidator:
             target_folder_path = os.path.join(
                 _TARGET_FOLDERS_BASE_PATH, target_name
             )
-            self._add_sheet_for_target(writer, target_folder_path, date)
+            self._add_sheet_for_target(target_folder_path, date)
             self._logger.info(
                 f"Added sheet: {target_name}."
                 f" ({current_target_number}/{total_targets})"
             )
 
-    def remove_sentinel_sheet(self, workbook: Workbook) -> None:
-        if "SENTINEL_SHEET" in workbook.sheetnames:
-            del workbook["SENTINEL_SHEET"]
+    def delete_sentinel_sheet(self) -> None:
+        if "SENTINEL_SHEET" in self._workbook.sheetnames:
+            del self._workbook["SENTINEL_SHEET"]
             return
 
     def get_summary(self) -> Dict[str, int | List[str]]:
@@ -313,7 +327,8 @@ class ExcelAnalyzer:
     _YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW
     _GRAY_WITH_TRANSPARENT = _TRANSPARENT + _GRAY
 
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, workbook: Workbook, logger: Logger) -> None:
+        self._workbook = workbook
         self._logger = logger
         self._hosts_to_check: set[str] = set()
 
@@ -390,21 +405,20 @@ class ExcelAnalyzer:
                 )
         return False
 
-    def highlight_cells_and_sheet_tabs(
-        self, workbook: Workbook, threshold: int
+    def highlight_cells_and_sheet_tab_by_criteria(
+        self, threshold: int
     ) -> None:
-
         HEADER_ROW = 1
         DATA_START_ROW = HEADER_ROW + 1
         ZERO_BASED_INDEX_OFFSET = 1
         PROCESSING_TIME_COLUMN = 3 - ZERO_BASED_INDEX_OFFSET
         ALERT_DETAIL_COLUMN = 4 - ZERO_BASED_INDEX_OFFSET
-        total_sheets = len(workbook.sheetnames)
+        total_sheets = len(self._workbook.sheetnames)
 
         for current_sheet_number, host_name in enumerate(
-            workbook.sheetnames, start=1
+            self._workbook.sheetnames, start=1
         ):
-            sheet = workbook[host_name]
+            sheet = self._workbook[host_name]
             has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=DATA_START_ROW):
@@ -431,13 +445,15 @@ class ExcelAnalyzer:
                 f" ({current_sheet_number}/{total_sheets})"
             )
 
-    def _create_new_order(self, workbook: Workbook) -> List[str]:
+    def _create_new_order(self) -> List[str]:
         yellow_sheets = []
         gray_sheets = []
         other_sheets = []
 
-        for sheet_name in workbook.sheetnames:
-            sheet_tab_color = workbook[sheet_name].sheet_properties.tabColor
+        for sheet_name in self._workbook.sheetnames:
+            sheet_tab_color = self._workbook[
+                sheet_name
+            ].sheet_properties.tabColor
             if sheet_tab_color is None:
                 other_sheets.append(sheet_name)
             else:
@@ -448,12 +464,12 @@ class ExcelAnalyzer:
                     gray_sheets.append(sheet_name)
         return yellow_sheets + other_sheets + gray_sheets
 
-    def reorder_sheets_by_color(self, workbook: Workbook) -> None:
-        new_order = self._create_new_order(workbook)
+    def reorder_sheets_by_color(self) -> None:
+        new_order = self._create_new_order()
 
-        total_sheets = len(workbook.sheetnames)
+        total_sheets = len(self._workbook.sheetnames)
         for current_sheet_number, sheet_name in enumerate(new_order, start=1):
-            workbook.move_sheet(sheet_name, total_sheets)
+            self._workbook.move_sheet(sheet_name, total_sheets)
             self._logger.info(
                 f"Reordered sheet: {sheet_name}."
                 f" ({current_sheet_number}/{total_sheets})"
@@ -516,41 +532,49 @@ def _log_daily_summaries(  # pragma: no cover
 
 
 if __name__ == "__main__":  # pragma: no cover
-    logger = CustomLogger(_LOG_FILE_PATH).get_logger
-    logger.info("Process started.")
+    try:
+        logger = CustomLogger(_LOG_FILE_PATH).get_logger
+        logger.info("Process started.")
 
-    date_handler = DateHandler(logger)
-    config_loader = ConfigLoader(logger, _CONFIG_FILE_PATH)
-    target_handler = TargetHandler(config_loader, logger)
+        date_handler = DateHandler(logger)
+        config_loader = ConfigLoader(logger, _CONFIG_FILE_PATH)
+        target_handler = TargetHandler(config_loader, logger)
 
-    date_range = date_handler.get_input_date_or_yesterday()
-    targets = target_handler.get_targets()
-    target_fullnames = target_handler.get_existing_host_fullnames(targets)
-    processing_time_threshold = config_loader.get_processing_time_threshold()
-    daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]] = {}
-
-    for date in date_range:
-        consolidator = CSVConsolidator(logger)
-        excel_path = consolidator.create_excel_file_path(date, targets)
-        consolidator.create_excel_directory(excel_path)
-
-        with pd.ExcelWriter(excel_path, engine="openpyxl", mode="w") as writer:
-            workbook = writer.book
-            consolidator.create_sentinel_sheet(writer)
-            consolidator.search_and_append_csv_to_excel(
-                writer, date, target_fullnames
-            )
-            consolidator.remove_sentinel_sheet(workbook)
-
-            excel_analyzer = ExcelAnalyzer(logger)
-            excel_analyzer.highlight_cells_and_sheet_tabs(
-                workbook, processing_time_threshold
-            )
-            excel_analyzer.reorder_sheets_by_color(workbook)
-
-        _save_daily_summary(
-            daily_summaries, date, consolidator, excel_analyzer
+        date_range = date_handler.get_input_date_or_yesterday()
+        targets = target_handler.get_targets()
+        target_fullnames = target_handler.get_existing_host_fullnames(targets)
+        processing_time_threshold = (
+            config_loader.get_processing_time_threshold()
         )
+        daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]] = {}
 
-    _log_daily_summaries(logger, daily_summaries)
-    logger.info("Process completed.")
+        for date in date_range:
+            excel_path = FileUtility.create_excel_file_path(date, targets)
+            FileUtility.create_directory(excel_path)
+
+            with pd.ExcelWriter(
+                excel_path, engine="openpyxl", mode="w"
+            ) as writer:
+                workbook = writer.book
+                consolidator = CSVConsolidator(writer, workbook, logger)
+                consolidator.create_sentinel_sheet()
+                consolidator.search_and_append_csv_to_excel(
+                    date, target_fullnames
+                )
+                consolidator.delete_sentinel_sheet()
+
+                excel_analyzer = ExcelAnalyzer(workbook, logger)
+                excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
+                    processing_time_threshold
+                )
+                excel_analyzer.reorder_sheets_by_color()
+
+            _save_daily_summary(
+                daily_summaries, date, consolidator, excel_analyzer
+            )
+
+        _log_daily_summaries(logger, daily_summaries)
+        logger.info("Process completed.")
+    except Exception as e:
+        logger.error(f"An error occured: {e}")
+        sys.exit(1)
