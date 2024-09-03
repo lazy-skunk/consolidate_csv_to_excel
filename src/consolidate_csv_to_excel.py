@@ -61,17 +61,19 @@ class DateHandler:
 
     def _parse_date(self, input_date: str) -> Optional[datetime.datetime]:
         if len(input_date) != self._DATE_LENGTH or not input_date.isdigit():
-            self._logger.error(
+            error_message = (
                 f"Date must be {self._DATE_LENGTH} digits in YYYYMMDD format :"
                 f" {input_date}."
                 " For a date range, please use the format YYYYMMDD~YYYYMMDD."
             )
-            raise
+            self._logger.error(error_message)
+            raise ValueError(error_message)
 
         date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
         if date > datetime.datetime.now():
-            self._logger.error(f"Future date specified: {input_date}.")
-            raise
+            error_message = f"Future date specified: {input_date}."
+            self._logger.error(error_message)
+            raise ValueError(error_message)
 
         return date
 
@@ -99,11 +101,12 @@ class DateHandler:
                 dates = input_date.split(self._DATE_DELIMITER)
 
                 if len(dates) != 2:
-                    self._logger.error(
+                    error_message = (
                         f"Invalid date range format specified: {input_date}. "
                         "Please use the format YYYYMMDD~YYYYMMDD."
                     )
-                    raise
+                    self._logger.error(error_message)
+                    raise ValueError(error_message)
 
                 start_date_str, end_date_str = dates
                 start_date = self._parse_date(start_date_str)
@@ -138,14 +141,14 @@ class ConfigLoader:
             )
             return config
         except FileNotFoundError:
-            self._logger.error(
+            error_message = (
                 f"Configuration file {self._config_file_path} not found."
             )
+            self._logger.error(error_message)
             raise
         except yaml.YAMLError as e:
-            self._logger.error(
-                f"Error parsing {self._config_file_path} : {e}."
-            )
+            error_message = f"Error parsing {self._config_file_path} : {e}."
+            self._logger.error(error_message)
             raise
 
     def get(self, key: str, default: Any = None) -> Any:
@@ -157,11 +160,12 @@ class ConfigLoader:
         if isinstance(threshold, int):
             return threshold
         else:
-            self._logger.error(
+            error_message = (
                 "Invalid value for 'processing_time_threshold_seconds'"
                 " in config file. Please provide a valid integer value."
             )
-            raise
+            self._logger.error(error_message)
+            raise ValueError(error_message)
 
 
 class TargetHandler:
@@ -198,8 +202,9 @@ class TargetHandler:
                 )
 
         if not host_fullnames:
-            self._logger.error("No valid targets found.")
-            raise
+            error_message = "No valid targets found."
+            self._logger.error(error_message)
+            raise ValueError(error_message)
 
         return host_fullnames
 
@@ -579,5 +584,5 @@ if __name__ == "__main__":  # pragma: no cover
         _log_daily_summaries(logger, daily_summaries)
         logger.info("Process completed.")
     except Exception as e:
-        logger.error(f"An error occured: {e}")
+        logger.error(f"An error occured: {e}", exc_info=True)
         sys.exit(1)
