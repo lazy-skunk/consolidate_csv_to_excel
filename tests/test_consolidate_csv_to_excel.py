@@ -16,6 +16,7 @@ from src.consolidate_csv_to_excel import (
     CSVConsolidator,
     DateHandler,
     ExcelAnalyzer,
+    FileUtility,
     TargetHandler,
 )
 
@@ -158,7 +159,7 @@ def test_get_processing_time_threshold_with_malformed_config(
     "argv, config_targets, expected",
     [
         (
-            ["test.py", "dummy_arg", "target1,target2"],
+            ["test.py", "19880209", "target1,target2"],
             None,
             ["target1", "target2"],
         ),
@@ -230,37 +231,58 @@ def test_get_existing_host_fullnames(
             assert host_fullnames == expected
 
 
-# @pytest.mark.parametrize(
-#     "argv, expected_suffix",
-#     [
-#         (["test.py", "arg1", "arg2"], "target1_target2"),
-#         (["test.py"], "config"),
-#     ],
-# )
-# def test_create_excel_file_path(
-#     csv_consolidator: CSVConsolidator,
-#     tmp_path: Path,
-#     argv: List[str],
-#     expected_suffix: str,
-# ) -> None:
-#     date = "19880209"
-#     targets = ["target1", "target2"]
+@pytest.mark.parametrize(
+    "argv, targets, expected",
+    [
+        (["test.py"], ["target1", "target2"], "config"),
+        (
+            ["test.py", "19880209"],
+            ["target1", "target2"],
+            "config",
+        ),
+        (
+            ["test.py", "19880209", "target"],
+            ["target1", "target2"],
+            "target1_target2",
+        ),
+    ],
+)
+def test_create_file_name_suffix(
+    argv: List[str], targets: List[str], expected: str
+) -> None:
+    with patch.object(sys, "argv", argv):
+        result = FileUtility.create_file_name_suffix(targets)
+        assert result == expected
 
-#     with (
-#         patch("sys.argv", argv),
-#         patch(
-#             "src.consolidate_csv_to_excel._EXCEL_FOLDER_PATH",
-#             tmp_path,
-#         ),
-#     ):
-#         expected = os.path.join(
-#             tmp_path,
-#             date,
-#             f"{date}_{expected_suffix}.xlsx",
-#         )
 
-#         result = csv_consolidator.create_excel_file_path(date, targets)
-#         assert result == expected
+@pytest.mark.parametrize(
+    "argv, suffix",
+    [
+        (["test.py", "19880209", "target"], "target1_target2"),
+        (["test.py", "19880209"], "config"),
+        (["test.py"], "config"),
+    ],
+)
+def test_create_excel_path(
+    tmp_path: Path, argv: List[str], suffix: str
+) -> None:
+    DATE = "19880209"
+
+    with (
+        patch("sys.argv", argv),
+        patch(
+            "src.consolidate_csv_to_excel._EXCEL_FOLDER_PATH",
+            tmp_path,
+        ),
+    ):
+        expected = os.path.join(
+            tmp_path,
+            DATE,
+            f"{DATE}_{suffix}.xlsx",
+        )
+
+        result = FileUtility.create_excel_path(DATE, suffix)
+        assert result == expected
 
 
 # def test_create_excel_directory(
