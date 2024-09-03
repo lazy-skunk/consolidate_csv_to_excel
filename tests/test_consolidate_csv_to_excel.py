@@ -285,15 +285,13 @@ def test_create_excel_path(
         assert result == expected
 
 
-# def test_create_excel_directory(
-#     csv_consolidator: CSVConsolidator, tmp_path: str
-# ) -> None:
-#     excel_file_path = os.path.join(tmp_path, "test", "file.xlsx")
-#     excel_directory = os.path.dirname(excel_file_path)
+def test_create_excel_directory(tmp_path: str) -> None:
+    excel_file_path = os.path.join(tmp_path, "19880209", "19880209_file.xlsx")
+    excel_directory = os.path.dirname(excel_file_path)
 
-#     assert not os.path.exists(excel_directory)
-#     csv_consolidator.create_excel_directory(excel_file_path)
-#     assert os.path.exists(excel_directory)
+    assert not os.path.exists(excel_directory)
+    FileUtility.create_directory(excel_file_path)
+    assert os.path.exists(excel_directory)
 
 
 # def test_create_sentinel_sheet(
