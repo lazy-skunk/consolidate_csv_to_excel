@@ -89,7 +89,7 @@ class DateHandler:
 
         return date_list
 
-    def get_input_date_or_yesterday(self) -> List[str]:
+    def get_date_range_or_yesterday(self) -> List[str]:
         DATE_INDEX = 1
 
         if len(sys.argv) > DATE_INDEX:
@@ -178,7 +178,7 @@ class TargetHandler:
 
         return targets
 
-    def get_existing_host_fullnames(self, targets: List[str]) -> List[str]:
+    def get_existing_target_fullnames(self, targets: List[str]) -> List[str]:
         host_fullnames = []
         host_folders = os.listdir(_TARGET_FOLDERS_BASE_PATH)
 
@@ -206,16 +206,15 @@ class TargetHandler:
 
 class FileUtility:
     @staticmethod
-    def determine_file_name_suffix(targets: List[str]) -> str:
+    def create_file_name_suffix(targets: List[str]) -> str:
         if len(sys.argv) > 2:
             return "_".join(targets)
         else:
             return "config"
 
     @staticmethod
-    def create_excel_file_path(date: str, targets: List[str]) -> str:
-        file_name_suffix = FileUtility.determine_file_name_suffix(targets)
-        excel_name = f"{date}_{file_name_suffix}.xlsx"
+    def create_excel_path(date: str, suffix: str) -> str:
+        excel_name = f"{date}_{suffix}.xlsx"
         excel_path = os.path.join(_EXCEL_FOLDER_PATH, date, excel_name)
         return excel_path
 
@@ -540,22 +539,26 @@ if __name__ == "__main__":  # pragma: no cover
         config_loader = ConfigLoader(logger, _CONFIG_FILE_PATH)
         target_handler = TargetHandler(config_loader, logger)
 
-        date_range = date_handler.get_input_date_or_yesterday()
+        date_range = date_handler.get_date_range_or_yesterday()
         targets = target_handler.get_targets()
-        target_fullnames = target_handler.get_existing_host_fullnames(targets)
+        target_fullnames = target_handler.get_existing_target_fullnames(
+            targets
+        )
         processing_time_threshold = (
             config_loader.get_processing_time_threshold()
         )
         daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]] = {}
 
+        file_name_suffix = FileUtility.create_file_name_suffix(targets)
         for date in date_range:
-            excel_path = FileUtility.create_excel_file_path(date, targets)
+            excel_path = FileUtility.create_excel_path(date, file_name_suffix)
             FileUtility.create_directory(excel_path)
 
             with pd.ExcelWriter(
                 excel_path, engine="openpyxl", mode="w"
             ) as writer:
                 workbook = writer.book
+
                 consolidator = CSVConsolidator(writer, workbook, logger)
                 consolidator.create_sentinel_sheet()
                 consolidator.search_and_append_csv_to_excel(
