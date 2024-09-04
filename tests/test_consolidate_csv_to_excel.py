@@ -294,6 +294,34 @@ def test_create_excel_directory(tmp_path: str) -> None:
     assert os.path.exists(excel_directory)
 
 
+@pytest.mark.parametrize(
+    "target_folder_path, date, file_exists, expected",
+    [
+        (
+            "/path/to/target",
+            "19880209",
+            True,
+            "/path/to/target/test_19880209.csv",
+        ),
+        (
+            "/path/to/target",
+            "19880209",
+            False,
+            None,
+        ),
+    ],
+)
+def test_get_merged_csv_path(
+    target_folder_path: str,
+    date: str,
+    file_exists: bool,
+    expected: str | None,
+) -> None:
+    with patch("os.path.exists", return_value=file_exists):
+        result = FileUtility.get_merged_csv_path(target_folder_path, date)
+        assert result == expected
+
+
 # def test_create_sentinel_sheet(
 #     csv_consolidator: CSVConsolidator, tmp_path_for_excel: str
 # ) -> None:
