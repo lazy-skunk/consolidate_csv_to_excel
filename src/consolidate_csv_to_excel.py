@@ -311,7 +311,6 @@ class CSVConsolidator:
     def delete_sentinel_sheet(self) -> None:
         if "SENTINEL_SHEET" in self._workbook.sheetnames:
             del self._workbook["SENTINEL_SHEET"]
-            return
 
     def get_summary(self) -> Dict[str, int | List[str]]:
         return {
