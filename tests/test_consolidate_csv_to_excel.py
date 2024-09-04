@@ -465,24 +465,24 @@ def test_search_and_append_csv_to_excel(
             assert len(csv_consolidator._failed_hosts) == 0
 
 
-# def test_remove_sentinel_sheet_exists(
-#     csv_consolidator: CSVConsolidator,
-#     mock_logger: MagicMock,
-#     prepare_tmp_excel_with_sentinel_and_dummy: None,
-#     tmp_path_for_excel: str,
-# ) -> None:
-#     csv_consolidator.delete_sentinel_sheet(tmp_path_for_excel)
+def test_remove_sentinel_sheet_exists(tmp_path: Path) -> None:
+    mock_logger = MagicMock(spec=logging.Logger)
+    tmp_excel = os.path.join(tmp_path, "excel.xlsx")
 
-#     try:
-#         workbook = load_workbook(tmp_path_for_excel)
-#         assert "SENTINEL_SHEET" not in workbook.sheetnames
-#     finally:
-#         workbook.close()
+    with pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer:
+        workbook = writer.book
+        csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
 
-#     csv_consolidator.delete_sentinel_sheet(tmp_path_for_excel)
-#     mock_logger.warning.assert_called_once_with(
-#         f"SENTINEL_SHEET not found in {tmp_path_for_excel}."
-#     )
+        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
+            writer, sheet_name="SENTINEL_SHEET", index=False, header=False
+        )
+        pd.DataFrame({"A": ["OTHER_SHEET"]}).to_excel(
+            writer, sheet_name="OTHER_SHEET", index=False, header=False
+        )
+
+        csv_consolidator.delete_sentinel_sheet()
+        assert "SENTINEL_SHEET" not in workbook.sheetnames
+        assert "OTHER_SHEET" in workbook.sheetnames
 
 
 # def test_get_summary(csv_consolidator: CSVConsolidator) -> None:
