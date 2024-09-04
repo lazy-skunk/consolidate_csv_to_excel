@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -47,6 +48,58 @@ class TestHelper:
             file.write(malformed_content)
 
         return temp_file
+
+    @staticmethod
+    def prepare_tmp_four_csvs(tmp_path: Path) -> None:
+        RANDOM_KEYS = [None, True, None, True]
+        for i in range(len(RANDOM_KEYS)):
+            data = []
+            valid_data = []
+            invalid_data = []
+
+            csv_file = f"{tmp_path}/target_{i}/test_19880209.csv"
+
+            csv_directory = os.path.dirname(csv_file)
+            os.makedirs(csv_directory, exist_ok=True)
+
+            date_a = datetime.now() - timedelta(seconds=i)
+            date_b = datetime.now() + timedelta(seconds=i)
+            processing_time = int((date_b - date_a).total_seconds())
+            json_list = [
+                {
+                    "date_a": date_a.isoformat(),
+                    "date_b": date_b.isoformat(),
+                    "time_difference": f"{processing_time}s",
+                    "random_key": RANDOM_KEYS[i],
+                }
+            ]
+
+            stringified_json = json.dumps(json_list)
+            valid_data.append(
+                [
+                    date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                    date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                    f"{processing_time}s",
+                    stringified_json,
+                ]
+            )
+
+            invalid_data.append(
+                [
+                    date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                    date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                    "INVALID_PROCESSING_TIME",
+                    "INVALID_JSON",
+                ]
+            )
+
+            data = valid_data + invalid_data
+
+            df = pd.DataFrame(
+                data,
+                columns=["date_a", "date_b", "processing_time", "random_key"],
+            )
+            df.to_csv(csv_file, index=False)
 
 
 @pytest.mark.parametrize(
@@ -333,76 +386,83 @@ def test_create_sentinel_sheet(tmp_path: Path) -> None:
         assert "SENTINEL_SHEET" in workbook.sheetnames
 
 
-# @pytest.mark.parametrize(
-#     "date, no_csv_found, exception",
-#     [
-#         ("19880209", False, None),
-#         ("INVALID_DATE", True, None),
-#         ("19880209", False, Exception),
-#     ],
-# )
-# def test_search_and_append_csv_to_excel(
-#     csv_consolidator: CSVConsolidator,
-#     prepare_tmp_csv: None,
-#     prepare_tmp_excel_with_sentinel: None,
-#     tmp_path: Path,
-#     tmp_path_for_excel: str,
-#     date: str,
-#     no_csv_found: bool,
-#     exception: type[Exception] | None,
-# ) -> None:
-#     target_fullnames = [f"target_{i}" for i in range(4)]
+@pytest.mark.parametrize(
+    "date, no_csv_found, exception",
+    [
+        ("19880209", False, None),
+        ("INVALID_DATE", True, None),
+        ("19880209", False, Exception),
+    ],
+)
+def test_search_and_append_csv_to_excel(
+    tmp_path: Path,
+    date: str,
+    no_csv_found: bool,
+    exception: type[Exception] | None,
+) -> None:
+    TestHelper.prepare_tmp_four_csvs(tmp_path)
 
-#     with patch(
-#         "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH", f"{tmp_path}"
-#     ):
-#         if exception:
-#             with patch("pandas.read_csv", side_effect=exception):
-#                 csv_consolidator.search_and_append_csv_to_excel(
-#                     date, target_fullnames, tmp_path_for_excel
-#                 )
-#                 assert csv_consolidator._copied_count == 0
-#                 assert csv_consolidator._no_csv_count == 0
-#                 assert csv_consolidator._failed_count == 4
-#                 assert len(csv_consolidator._failed_hosts) == 4
-#                 return
-#         else:
-#             csv_consolidator.search_and_append_csv_to_excel(
-#                 date, target_fullnames, tmp_path_for_excel
-#             )
+    mock_logger = MagicMock(spec=logging.Logger)
+    tmp_excel = os.path.join(tmp_path, "excel.xlsx")
 
-#     try:
-#         workbook = load_workbook(tmp_path_for_excel)
+    with (
+        patch(
+            "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH",
+            f"{tmp_path}",
+        ),
+        pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer,
+    ):
+        workbook = writer.book
+        csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
 
-#         assert set(workbook.sheetnames) == {
-#             "SENTINEL_SHEET",
-#             "target_0",
-#             "target_1",
-#             "target_2",
-#             "target_3",
-#         }
+        pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
+            writer, sheet_name="SENTINEL_SHEET", index=False, header=False
+        )
 
-#         if no_csv_found:
-#             for sheet_name in target_fullnames:
-#                 sheet = workbook[sheet_name]
-#                 assert (
-#                     sheet.sheet_properties.tabColor.value
-#                     == TestHelper.GRAY_WITH_TRANSPARENT
-#                 )
-#             assert csv_consolidator._copied_count == 0
-#             assert csv_consolidator._no_csv_count == 4
-#             assert csv_consolidator._failed_count == 0
-#             assert len(csv_consolidator._failed_hosts) == 0
-#         else:
-#             for sheet_name in target_fullnames:
-#                 sheet = workbook[sheet_name]
-#                 assert sheet.sheet_properties.tabColor is None
-#             assert csv_consolidator._copied_count == 4
-#             assert csv_consolidator._no_csv_count == 0
-#             assert csv_consolidator._failed_count == 0
-#             assert len(csv_consolidator._failed_hosts) == 0
-#     finally:
-#         workbook.close()
+        target_fullnames = [f"target_{i}" for i in range(4)]
+
+        if exception:
+            with patch("pandas.read_csv", side_effect=exception):
+                csv_consolidator.search_and_append_csv_to_excel(
+                    date, target_fullnames
+                )
+                assert csv_consolidator._copied_count == 0
+                assert csv_consolidator._no_csv_count == 0
+                assert csv_consolidator._failed_count == 4
+                assert len(csv_consolidator._failed_hosts) == 4
+                return
+        else:
+            csv_consolidator.search_and_append_csv_to_excel(
+                date, target_fullnames
+            )
+
+        assert set(workbook.sheetnames) == {
+            "SENTINEL_SHEET",
+            "target_0",
+            "target_1",
+            "target_2",
+            "target_3",
+        }
+
+        if no_csv_found:
+            for sheet_name in target_fullnames:
+                sheet = workbook[sheet_name]
+                assert (
+                    sheet.sheet_properties.tabColor.value
+                    == TestHelper.GRAY_WITH_TRANSPARENT
+                )
+            assert csv_consolidator._copied_count == 0
+            assert csv_consolidator._no_csv_count == 4
+            assert csv_consolidator._failed_count == 0
+            assert len(csv_consolidator._failed_hosts) == 0
+        else:
+            for sheet_name in target_fullnames:
+                sheet = workbook[sheet_name]
+                assert sheet.sheet_properties.tabColor is None
+            assert csv_consolidator._copied_count == 4
+            assert csv_consolidator._no_csv_count == 0
+            assert csv_consolidator._failed_count == 0
+            assert len(csv_consolidator._failed_hosts) == 0
 
 
 # def test_remove_sentinel_sheet_exists(
