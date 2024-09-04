@@ -322,13 +322,15 @@ def test_get_merged_csv_path(
         assert result == expected
 
 
-# def test_create_sentinel_sheet(
-#     csv_consolidator: CSVConsolidator, tmp_path_for_excel: str
-# ) -> None:
-#     with pd.ExcelWriter(
-#         tmp_path_for_excel, engine="openpyxl", mode="w"
-#     ) as writer:
-#         csv_consolidator.create_sentinel_sheet(writer)
+def test_create_sentinel_sheet(tmp_path: Path) -> None:
+    mock_logger = MagicMock(spec=logging.Logger)
+    tmp_excel = os.path.join(tmp_path, "excel.xlsx")
+    with pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer:
+        workbook = writer.book
+        csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
+        csv_consolidator.create_sentinel_sheet()
+
+        assert "SENTINEL_SHEET" in workbook.sheetnames
 
 
 # @pytest.mark.parametrize(
