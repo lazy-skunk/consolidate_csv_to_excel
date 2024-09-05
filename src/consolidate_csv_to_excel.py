@@ -416,7 +416,6 @@ class ExcelAnalyzer:
     def highlight_cells_and_sheet_tab_by_criteria(
         self, threshold: int
     ) -> None:
-
         total_sheets = len(self._workbook.sheetnames)
 
         for current_sheet_number, host_name in enumerate(
@@ -505,11 +504,6 @@ def _log_daily_summaries(  # pragma: no cover
 ) -> None:
     logger.info("Logging daily summaries for each file:")
     for file_name, summary in daily_summaries.items():
-        logger.info(
-            f"File: {file_name} - Copied: {summary['copied']},"
-            f" No CSV: {summary['no_csv']}. "
-        )
-
         if summary.get("hosts_to_check"):
             hosts_to_check = summary["hosts_to_check"]
             if isinstance(hosts_to_check, set):
