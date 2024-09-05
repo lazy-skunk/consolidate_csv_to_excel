@@ -18,6 +18,12 @@ _TARGET_FOLDERS_BASE_PATH = os.path.join("log_directory")
 _LOG_FILE_PATH = os.path.join("log", "test.log")
 _EXCEL_FOLDER_PATH = os.path.join("output", "excel")
 
+_HEADER_ROW = 1
+_DATA_START_ROW = _HEADER_ROW + 1
+_ZERO_BASED_INDEX_OFFSET = 1
+_PROCESSING_TIME_COLUMN = 3 - _ZERO_BASED_INDEX_OFFSET
+_ALERT_DETAIL_COLUMN = 4 - _ZERO_BASED_INDEX_OFFSET
+
 
 class CustomLogger:  # pragma: no cover
     def __init__(
@@ -410,11 +416,7 @@ class ExcelAnalyzer:
     def highlight_cells_and_sheet_tab_by_criteria(
         self, threshold: int
     ) -> None:
-        HEADER_ROW = 1
-        DATA_START_ROW = HEADER_ROW + 1
-        ZERO_BASED_INDEX_OFFSET = 1
-        PROCESSING_TIME_COLUMN = 3 - ZERO_BASED_INDEX_OFFSET
-        ALERT_DETAIL_COLUMN = 4 - ZERO_BASED_INDEX_OFFSET
+
         total_sheets = len(self._workbook.sheetnames)
 
         for current_sheet_number, host_name in enumerate(
@@ -423,15 +425,15 @@ class ExcelAnalyzer:
             sheet = self._workbook[host_name]
             has_highlighted_cell = False
 
-            for row in sheet.iter_rows(min_row=DATA_START_ROW):
+            for row in sheet.iter_rows(min_row=_DATA_START_ROW):
                 processing_time_highlighted = (
                     self._check_and_highlight_processing_time(
-                        row, PROCESSING_TIME_COLUMN, threshold
+                        row, _PROCESSING_TIME_COLUMN, threshold
                     )
                 )
                 alert_detail_highlighted = (
                     self._check_and_highlight_alert_detail(
-                        row, ALERT_DETAIL_COLUMN
+                        row, _ALERT_DETAIL_COLUMN
                     )
                 )
 
