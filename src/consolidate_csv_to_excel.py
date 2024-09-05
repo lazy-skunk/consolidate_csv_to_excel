@@ -196,27 +196,28 @@ class TargetHandler:
             if matched_host_names:
                 host_fullnames.extend(matched_host_names)
             else:
-                self._logger.warning(
+                error_message = (
                     f"No folder starting with target '{target}'"
                     " was found in the log directory."
                 )
-
-        if not host_fullnames:
-            error_message = "No valid targets found."
-            self._logger.error(error_message)
-            raise ValueError(error_message)
+                self._logger.error(error_message)
+                raise ValueError(error_message)
 
         return host_fullnames
 
+    @staticmethod
+    def extract_matching_targets(
+        target: str, target_fullnames: List[str]
+    ) -> List[str]:
+        valid_targets = [
+            target_fullname
+            for target_fullname in target_fullnames
+            if target_fullname.startswith(target)
+        ]
+        return valid_targets
+
 
 class FileUtility:
-    @staticmethod
-    def create_file_name_suffix(targets: List[str]) -> str:
-        if len(sys.argv) > 2:
-            return "_".join(targets)
-        else:
-            return "config"
-
     @staticmethod
     def create_excel_path(date: str, suffix: str) -> str:
         excel_name = f"{date}_{suffix}.xlsx"
@@ -482,14 +483,15 @@ class ExcelAnalyzer:
 
 def _save_daily_summary(  # pragma: no cover
     daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
-    date: str,
+    excel_path: str,
     consolidator: CSVConsolidator,
     excel_analyzer: ExcelAnalyzer,
 ) -> None:
     consolidator_summary = consolidator.get_summary()
     hosts_to_check = excel_analyzer.get_hosts_to_check()
+    file_name = os.path.basename(excel_path)
 
-    daily_summaries[date] = {
+    daily_summaries[file_name] = {
         **consolidator_summary,
         "hosts_to_check": hosts_to_check,
     }
@@ -499,10 +501,10 @@ def _log_daily_summaries(  # pragma: no cover
     logger: Logger,
     daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]],
 ) -> None:
-    logger.info("Logging daily summaries for each date:")
-    for date, summary in daily_summaries.items():
+    logger.info("Logging daily summaries for each file:")
+    for file_name, summary in daily_summaries.items():
         logger.info(
-            f"Date: {date} - Copied: {summary['copied']},"
+            f"File: {file_name} - Copied: {summary['copied']},"
             f" No CSV: {summary['no_csv']}. "
         )
 
@@ -510,24 +512,24 @@ def _log_daily_summaries(  # pragma: no cover
             hosts_to_check = summary["hosts_to_check"]
             if isinstance(hosts_to_check, set):
                 logger.warning(
-                    f"Date: {date} - hosts to check:"
+                    f"File: {file_name} - hosts to check:"
                     f" {', '.join(hosts_to_check)}"
                 )
             else:
                 logger.warning(
-                    f"Date: {date} - hosts to check: {hosts_to_check}"
+                    f"File: {file_name} - hosts to check: {hosts_to_check}"
                 )
 
         if summary.get("failed") and summary.get("failed_hosts"):
             failed_hosts = summary["failed_hosts"]
             if isinstance(failed_hosts, list):
                 logger.error(
-                    f"Date: {date} - Failed: {summary['failed']},"
+                    f"File: {file_name} - Failed: {summary['failed']},"
                     f" Failed Hosts: {', '.join(failed_hosts)}"
                 )
             else:
                 logger.error(
-                    f"Date: {date} - Failed: {summary['failed']},"
+                    f"File: {file_name} - Failed: {summary['failed']},"
                     f" Failed Hosts: {failed_hosts}"
                 )
 
@@ -551,32 +553,38 @@ if __name__ == "__main__":  # pragma: no cover
         )
         daily_summaries: Dict[str, Dict[str, int | List[str] | Set[str]]] = {}
 
-        file_name_suffix = FileUtility.create_file_name_suffix(targets)
         for date in date_range:
-            excel_path = FileUtility.create_excel_path(date, file_name_suffix)
-            FileUtility.create_directory(excel_path)
-
-            with pd.ExcelWriter(
-                excel_path, engine="openpyxl", mode="w"
-            ) as writer:
-                workbook = writer.book
-
-                consolidator = CSVConsolidator(writer, workbook, logger)
-                consolidator.create_sentinel_sheet()
-                consolidator.search_and_append_csv_to_excel(
-                    date, target_fullnames
+            for target in targets:
+                extracted_targets = TargetHandler.extract_matching_targets(
+                    target, target_fullnames
                 )
-                consolidator.delete_sentinel_sheet()
+                excel_path = FileUtility.create_excel_path(date, target)
+                FileUtility.create_directory(excel_path)
 
-                excel_analyzer = ExcelAnalyzer(workbook, logger)
-                excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
-                    processing_time_threshold
+                logger.info(f"Starting to create {excel_path}.")
+                with pd.ExcelWriter(
+                    excel_path, engine="openpyxl", mode="w"
+                ) as writer:
+                    workbook = writer.book
+
+                    consolidator = CSVConsolidator(writer, workbook, logger)
+                    consolidator.create_sentinel_sheet()
+                    consolidator.search_and_append_csv_to_excel(
+                        date, extracted_targets
+                    )
+                    consolidator.delete_sentinel_sheet()
+
+                    excel_analyzer = ExcelAnalyzer(workbook, logger)
+                    excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
+                        processing_time_threshold
+                    )
+                    excel_analyzer.reorder_sheets_by_color()
+                    logger.info(f"Saving {excel_path}.")
+
+                _save_daily_summary(
+                    daily_summaries, excel_path, consolidator, excel_analyzer
                 )
-                excel_analyzer.reorder_sheets_by_color()
-
-            _save_daily_summary(
-                daily_summaries, date, consolidator, excel_analyzer
-            )
+                logger.info(f"Finished creating {excel_path}.")
 
         _log_daily_summaries(logger, daily_summaries)
         logger.info("Process completed.")
