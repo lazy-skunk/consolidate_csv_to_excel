@@ -207,36 +207,33 @@ def test_get_processing_time_threshold_with_malformed_config(
             config_loader.get_processing_time_threshold()
 
 
-# @pytest.mark.parametrize(
-#     "argv, config_targets, expected",
-#     [
-#         (
-#             ["test.py", "19880209", "target1,target2"],
-#             None,
-#             ["target1", "target2"],
-#         ),
-#         (
-#             ["test.py"],
-#             ["config_target1", "config_target2"],
-#             ["config_target1", "config_target2"],
-#         ),
-#     ],
-# )
-# def test_get_targets(
-#     argv: List[str],
-#     config_targets: List[str] | None,
-#     expected: List[str],
-# ) -> None:
-#     mock_config_loader = MagicMock(spec=ConfigLoader)
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     target_handler = TargetHandler(mock_config_loader, mock_logger)
+@pytest.mark.parametrize(
+    "argv, config_targets, expected",
+    [
+        (
+            ["test.py", "19880209", "target1,target2"],
+            None,
+            ["target1", "target2"],
+        ),
+        (
+            ["test.py"],
+            ["config_target1", "config_target2"],
+            ["config_target1", "config_target2"],
+        ),
+    ],
+)
+def test_get_target_prefixes(
+    argv: List[str],
+    config_targets: List[str] | None,
+    expected: List[str],
+) -> None:
+    mock_config_loader = MagicMock(spec=ConfigLoader)
+    if config_targets:
+        mock_config_loader.get.return_value = config_targets
 
-#     with patch("sys.argv", argv):
-#         if config_targets:
-#             mock_config_loader.get.return_value = config_targets
-
-#         targets = target_handler.get_target_prefixes()
-#         assert targets == expected
+    with patch("sys.argv", argv):
+        target_prefixes = TargetHandler.get_target_prefixes(mock_config_loader)
+        assert target_prefixes == expected
 
 
 # @pytest.mark.parametrize(
