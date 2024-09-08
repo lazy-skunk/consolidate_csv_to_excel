@@ -185,21 +185,26 @@ def test_get_processing_time_threshold(
             assert threshold == expected
 
 
-# def test_config_not_found() -> None:
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     with pytest.raises(FileNotFoundError):
-#         ConfigLoader(mock_logger, "non_existent_file.yaml")
+def test_config_not_found() -> None:
+    mock_logger = MagicMock(spec=logging.Logger)
+    config_loader = ConfigLoader("INVALID_CONFIG.YAML")
+
+    with patch.object(config_loader, "_logger", mock_logger):
+        with pytest.raises(FileNotFoundError):
+            config_loader.get("INVALID_KEY")
 
 
-# def test_get_processing_time_threshold_with_malformed_config(
-#     tmp_path: Path,
-# ) -> None:
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     malformed_config_path = TestHelper.create_malformed_config_and_return_path(
-#         tmp_path
-#     )
-#     with pytest.raises(yaml.YAMLError):
-#         ConfigLoader(mock_logger, malformed_config_path)
+def test_get_processing_time_threshold_with_malformed_config(
+    tmp_path: Path,
+) -> None:
+    mock_logger = MagicMock(spec=logging.Logger)
+    malformed_config_path = TestHelper.create_malformed_config_and_return_path(
+        tmp_path
+    )
+    config_loader = ConfigLoader(malformed_config_path)
+    with patch.object(config_loader, "_logger", mock_logger):
+        with pytest.raises(yaml.YAMLError):
+            config_loader.get_processing_time_threshold()
 
 
 # @pytest.mark.parametrize(
