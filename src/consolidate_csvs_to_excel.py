@@ -87,6 +87,7 @@ class DateHandler:
             )
 
         date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
+
         if date > datetime.datetime.now():
             raise ValueError(
                 f"Future date specified. Input value : {input_date}"
@@ -290,6 +291,7 @@ class CSVConsolidator:
         self, filtered_targets_and_csv_path: dict[str, str | None]
     ) -> None:
         total_targets = len(filtered_targets_and_csv_path)
+
         for current_target_number, (target_name, csv_path) in enumerate(
             filtered_targets_and_csv_path.items(), start=1
         ):
@@ -412,6 +414,7 @@ class ExcelAnalyzer:
                 "Exceeded processing time threshold detected"
                 f" for host: {host_name}."
             )
+
         if host_name in self._hosts_with_anomaly_value:
             self._logger.warning(
                 f"Anomaly value detected for host: {host_name}."
@@ -462,14 +465,17 @@ class ExcelAnalyzer:
             sheet_tab_color = self._workbook[
                 sheet_name
             ].sheet_properties.tabColor
+
             if sheet_tab_color is None:
                 other_sheets.append(sheet_name)
             else:
                 sheet_color_value = sheet_tab_color.value
+
                 if sheet_color_value == self._YELLOW_WITH_TRANSPARENT:
                     yellow_sheets.append(sheet_name)
                 elif sheet_color_value == self._GRAY_WITH_TRANSPARENT:
                     gray_sheets.append(sheet_name)
+
         return yellow_sheets + other_sheets + gray_sheets
 
     def reorder_sheets_by_color(self) -> None:
@@ -626,7 +632,7 @@ def main() -> None:
                 continue
 
             for target_prefix in target_prefixes:
-                filtered_targets_and_csv_path = {
+                extracted_targets_and_csv_path = {
                     target_fullname: csv_path
                     for target_fullname, csv_path in targets_and_csv_path.items()  # noqa E501
                     if target_fullname.startswith(target_prefix)
@@ -634,7 +640,7 @@ def main() -> None:
 
                 if all(
                     csv_path is None
-                    for csv_path in filtered_targets_and_csv_path.values()
+                    for csv_path in extracted_targets_and_csv_path.values()
                 ):
                     logger.warning(
                         "No CSV files found for"
@@ -653,7 +659,7 @@ def main() -> None:
 
                     csv_consolidator = CSVConsolidator(writer, workbook)
                     csv_consolidator.consolidate_csvs_to_excel(
-                        filtered_targets_and_csv_path
+                        extracted_targets_and_csv_path
                     )
 
                     excel_analyzer = ExcelAnalyzer(workbook)
