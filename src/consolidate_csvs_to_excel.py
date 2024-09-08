@@ -136,54 +136,53 @@ class DateHandler:
 
 class ConfigLoader:
     _logger = CustomLogger.get_logger()
-    _config_file_path: str = _CONFIG_FILE_PATH
-    _config: Dict[str, Any] = {}
 
-    @classmethod
-    def _load_config(cls) -> None:
+    def __init__(self, config_file_path: str = _CONFIG_FILE_PATH):
+        self._config_file_path = config_file_path
+        self._config: Dict[str, Any] = {}
+
+    def _load_config(self) -> None:
         try:
-            with open(cls._config_file_path, "r") as file:
-                cls._config = yaml.safe_load(file)
-            cls._logger.info(
-                f"Configuration file '{cls._config_file_path}'"
+            with open(self._config_file_path, "r") as file:
+                self._config = yaml.safe_load(file)
+            self._logger.info(
+                f"Configuration file {self._config_file_path}"
                 " loaded successfully."
             )
         except FileNotFoundError:
             raise FileNotFoundError(
-                f"Configuration file '{cls._config_file_path}' not found."
+                f"Configuration file {self._config_file_path} not found."
             )
         except yaml.YAMLError as e:
             raise yaml.YAMLError(
-                f"Error parsing '{cls._config_file_path}': {e}."
+                f"Error parsing {self._config_file_path}: {e}."
             )
 
-    @classmethod
-    def get(cls, key: str, default: Any = None) -> Any:
-        if not cls._config:
-            cls._load_config()
-        return cls._config.get(key, default)
+    def get(self, key: str, default: Any = None) -> Any:
+        if not self._config:
+            self._load_config()
+        return self._config.get(key, default)
 
-    @classmethod
-    def get_processing_time_threshold(cls) -> int:
-        threshold = cls.get("processing_time_threshold_seconds")
+    def get_processing_time_threshold(self) -> int:
+        threshold = self.get("processing_time_threshold_seconds")
 
         if isinstance(threshold, int):
             return threshold
         else:
             raise ValueError(
                 "Invalid value for 'processing_time_threshold_seconds'"
-                " in config file. Please provide a valid integer value."
+                " in config file."
             )
 
 
 class TargetHandler:
     @classmethod
-    def get_target_prefixes(cls) -> List[str]:
+    def get_target_prefixes(cls, config_loader: ConfigLoader) -> List[str]:
         TARGET_INDEX = 2
         if len(sys.argv) > TARGET_INDEX:
             targets = sys.argv[TARGET_INDEX].split(",")
         else:
-            targets = ConfigLoader.get("targets", [])
+            targets = config_loader.get("targets", [])
         return targets
 
     @classmethod
@@ -608,7 +607,8 @@ def main() -> None:
         logger.info("Process started.")
 
         date_range = DateHandler.get_date_range_or_yesterday()
-        target_prefixes = TargetHandler.get_target_prefixes()
+        config_loader = ConfigLoader(_CONFIG_FILE_PATH)
+        target_prefixes = TargetHandler.get_target_prefixes(config_loader)
         target_fullnames = TargetHandler.get_target_fullnames(target_prefixes)
         targets_and_csv_path_by_dates = (
             CSVPathMapper.get_targets_and_csv_path_by_dates(
@@ -616,7 +616,7 @@ def main() -> None:
             )
         )
         processing_time_threshold = (
-            ConfigLoader.get_processing_time_threshold()
+            config_loader.get_processing_time_threshold()
         )
         processing_summary = ProcessingSummary()
         processing_summary.add_missing_csv_info(targets_and_csv_path_by_dates)
