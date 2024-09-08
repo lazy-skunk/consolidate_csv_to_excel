@@ -280,8 +280,8 @@ def test_get_target_fullnames(
 @pytest.mark.parametrize(
     "date_range, target_fullnames",
     [
-        (["19880209", "19880210"], ["target_1", "target_2"]),
-        (["19880209"], ["target_1"]),
+        (["19880209", "19880210"], ["target_0", "target_1"]),
+        (["19880209"], ["target_0"]),
     ],
 )
 def test_get_targets_and_csv_path_by_dates(
@@ -291,12 +291,13 @@ def test_get_targets_and_csv_path_by_dates(
 ) -> None:
     TestHelper.prepare_tmp_four_csvs(tmp_path, date_range)
 
-    expected = {}
+    expected: Dict[str, Dict[str, str]] = {}
     for date in date_range:
-        expected[date] = {
-            target: (str(tmp_path / f"target_{i}/test_{date}.csv"))
-            for i, target in enumerate(target_fullnames, start=1)
-        }
+        expected[date] = {}
+        for target_fullname in target_fullnames:
+            expected[date][target_fullname] = str(
+                tmp_path / f"{target_fullname}/test_{date}.csv"
+            )
 
     result = CSVPathMapper.get_targets_and_csv_path_by_dates(
         date_range, target_fullnames
