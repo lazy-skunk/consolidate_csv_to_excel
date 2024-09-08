@@ -236,46 +236,38 @@ def test_get_target_prefixes(
         assert target_prefixes == expected
 
 
-# @pytest.mark.parametrize(
-#     "host_folders, targets, expected, exception",
-#     [
-#         (
-#             ["host1_log", "host2_log", "host3_log"],
-#             ["host1", "host2"],
-#             ["host1_log", "host2_log"],
-#             None,
-#         ),
-#         (
-#             ["host1_log", "host2_log", "host3_log"],
-#             ["host4"],
-#             [],
-#             ValueError,
-#         ),
-#         (
-#             ["host1_log", "host2_log", "host3_log"],
-#             ["host1", "host4"],
-#             ["host1_log"],
-#             None,
-#         ),
-#     ],
-# )
-# def test_get_existing_host_fullnames(
-#     host_folders: List[str],
-#     targets: List[str],
-#     expected: List[str],
-#     exception: Type[ValueError] | None,
-# ) -> None:
-#     mock_config_loader = MagicMock(spec=ConfigLoader)
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     target_handler = TargetHandler(mock_config_loader, mock_logger)
-
-#     with patch("os.listdir", return_value=host_folders):
-#         if exception:
-#             with pytest.raises(exception):
-#                 target_handler.get_target_fullnames(targets)
-#         else:
-#             host_fullnames = target_handler.get_target_fullnames(targets)
-#             assert host_fullnames == expected
+@pytest.mark.parametrize(
+    "host_folders, target_prefixes, expected, exception",
+    [
+        (
+            ["host1_log", "host2_log", "host3_log"],
+            ["host1", "host2"],
+            ["host1_log", "host2_log"],
+            None,
+        ),
+        (
+            ["host1_log", "host2_log", "host3_log"],
+            ["host4"],
+            [],
+            ValueError,
+        ),
+    ],
+)
+def test_get_target_fullnames(
+    host_folders: List[str],
+    target_prefixes: List[str],
+    expected: List[str],
+    exception: Type[ValueError] | None,
+) -> None:
+    with patch("os.listdir", return_value=host_folders):
+        if exception:
+            with pytest.raises(exception):
+                TargetHandler.get_target_fullnames(target_prefixes)
+        else:
+            host_fullnames = TargetHandler.get_target_fullnames(
+                target_prefixes
+            )
+            assert host_fullnames == expected
 
 
 # @pytest.mark.parametrize(
