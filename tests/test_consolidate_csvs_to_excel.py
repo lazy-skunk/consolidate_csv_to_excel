@@ -4,7 +4,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Type
+from typing import Dict, List, Type
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -15,6 +15,7 @@ from openpyxl import load_workbook
 from src.consolidate_csvs_to_excel import (
     ConfigLoader,
     CSVConsolidator,
+    CSVPathMapper,
     DateHandler,
     ExcelAnalyzer,
     FileUtility,
@@ -50,56 +51,62 @@ class TestHelper:
         return temp_file
 
     @staticmethod
-    def prepare_tmp_four_csvs(tmp_path: Path) -> None:
+    def prepare_tmp_four_csvs(tmp_path: Path, date_range: List[str]) -> None:
         RANDOM_KEYS = [None, True, None, True]
-        for i in range(len(RANDOM_KEYS)):
-            data = []
-            valid_data = []
-            invalid_data = []
+        for date in date_range:
+            for i in range(len(RANDOM_KEYS)):
+                data = []
+                valid_data = []
+                invalid_data = []
 
-            csv_file = f"{tmp_path}/target_{i}/test_19880209.csv"
+                csv_file = f"{tmp_path}/target_{i}/test_{date}.csv"
 
-            csv_directory = os.path.dirname(csv_file)
-            os.makedirs(csv_directory, exist_ok=True)
+                csv_directory = os.path.dirname(csv_file)
+                os.makedirs(csv_directory, exist_ok=True)
 
-            date_a = datetime.now() - timedelta(seconds=i)
-            date_b = datetime.now() + timedelta(seconds=i)
-            processing_time = int((date_b - date_a).total_seconds())
-            json_list = [
-                {
-                    "date_a": date_a.isoformat(),
-                    "date_b": date_b.isoformat(),
-                    "time_difference": f"{processing_time}s",
-                    "random_key": RANDOM_KEYS[i],
-                }
-            ]
-
-            stringified_json = json.dumps(json_list)
-            valid_data.append(
-                [
-                    date_a.strftime("%Y-%m-%d %H:%M:%S"),
-                    date_b.strftime("%Y-%m-%d %H:%M:%S"),
-                    f"{processing_time}s",
-                    stringified_json,
+                date_a = datetime.now() - timedelta(seconds=i)
+                date_b = datetime.now() + timedelta(seconds=i)
+                processing_time = int((date_b - date_a).total_seconds())
+                json_list = [
+                    {
+                        "date_a": date_a.isoformat(),
+                        "date_b": date_b.isoformat(),
+                        "time_difference": f"{processing_time}s",
+                        "random_key": RANDOM_KEYS[i],
+                    }
                 ]
-            )
 
-            invalid_data.append(
-                [
-                    date_a.strftime("%Y-%m-%d %H:%M:%S"),
-                    date_b.strftime("%Y-%m-%d %H:%M:%S"),
-                    "INVALID_PROCESSING_TIME",
-                    "INVALID_JSON",
-                ]
-            )
+                stringified_json = json.dumps(json_list)
+                valid_data.append(
+                    [
+                        date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                        date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                        f"{processing_time}s",
+                        stringified_json,
+                    ]
+                )
 
-            data = valid_data + invalid_data
+                invalid_data.append(
+                    [
+                        date_a.strftime("%Y-%m-%d %H:%M:%S"),
+                        date_b.strftime("%Y-%m-%d %H:%M:%S"),
+                        "INVALID_PROCESSING_TIME",
+                        "INVALID_JSON",
+                    ]
+                )
 
-            df = pd.DataFrame(
-                data,
-                columns=["date_a", "date_b", "processing_time", "random_key"],
-            )
-            df.to_csv(csv_file, index=False)
+                data = valid_data + invalid_data
+
+                df = pd.DataFrame(
+                    data,
+                    columns=[
+                        "date_a",
+                        "date_b",
+                        "processing_time",
+                        "random_key",
+                    ],
+                )
+                df.to_csv(csv_file, index=False)
 
 
 @pytest.mark.parametrize(
@@ -268,6 +275,34 @@ def test_get_target_fullnames(
                 target_prefixes
             )
             assert host_fullnames == expected
+
+
+@pytest.mark.parametrize(
+    "date_range, target_fullnames",
+    [
+        (["19880209", "19880210"], ["target_1", "target_2"]),
+        (["19880209"], ["target_1"]),
+    ],
+)
+def test_get_targets_and_csv_path_by_dates(
+    tmp_path: Path,
+    date_range: List[str],
+    target_fullnames: List[str],
+) -> None:
+    TestHelper.prepare_tmp_four_csvs(tmp_path, date_range)
+
+    expected = {}
+    for date in date_range:
+        expected[date] = {
+            target: (str(tmp_path / f"target_{i}/test_{date}.csv"))
+            for i, target in enumerate(target_fullnames, start=1)
+        }
+
+    result = CSVPathMapper.get_targets_and_csv_path_by_dates(
+        date_range, target_fullnames
+    )
+
+    assert result == expected
 
 
 # @pytest.mark.parametrize(
