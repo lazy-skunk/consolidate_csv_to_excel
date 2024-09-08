@@ -12,7 +12,7 @@ import pytest
 import yaml
 from openpyxl import load_workbook
 
-from src.consolidate_csv_to_excel import (
+from src.consolidate_csvs_to_excel import (
     ConfigLoader,
     CSVConsolidator,
     DateHandler,
@@ -125,11 +125,8 @@ def test_get_date_range_or_yesterday(
     argv: List[str],
     expected: List[str],
 ) -> None:
-    mock_logger = MagicMock(spec=logging.Logger)
-    date_handler = DateHandler(mock_logger)
-
     with patch.object(sys, "argv", argv):
-        result = date_handler.get_date_range_or_yesterday()
+        result = DateHandler.get_date_range_or_yesterday()
         assert result == expected
 
 
@@ -151,12 +148,9 @@ def test_get_date_range_or_yesterday(
 def test_get_date_range_or_yesterday_with_invalid_dates(
     argv: List[str],
 ) -> None:
-    mock_logger = MagicMock(spec=logging.Logger)
-    date_handler = DateHandler(mock_logger)
-
     with patch.object(sys, "argv", argv):
         with pytest.raises(ValueError):
-            date_handler.get_date_range_or_yesterday()
+            DateHandler.get_date_range_or_yesterday()
 
 
 @pytest.mark.parametrize(
@@ -236,7 +230,7 @@ def test_get_targets(
         if config_targets:
             mock_config_loader.get.return_value = config_targets
 
-        targets = target_handler.get_targets()
+        targets = target_handler.get_target_prefixes()
         assert targets == expected
 
 
@@ -276,11 +270,9 @@ def test_get_existing_host_fullnames(
     with patch("os.listdir", return_value=host_folders):
         if exception:
             with pytest.raises(exception):
-                target_handler.get_existing_target_fullnames(targets)
+                target_handler.get_target_fullnames(targets)
         else:
-            host_fullnames = target_handler.get_existing_target_fullnames(
-                targets
-            )
+            host_fullnames = target_handler.get_target_fullnames(targets)
             assert host_fullnames == expected
 
 
@@ -381,7 +373,7 @@ def test_create_sentinel_sheet(tmp_path: Path) -> None:
     with pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer:
         workbook = writer.book
         csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
-        csv_consolidator.create_sentinel_sheet()
+        csv_consolidator._create_sentinel_sheet()
 
         assert "SENTINEL_SHEET" in workbook.sheetnames
 
@@ -423,18 +415,14 @@ def test_search_and_append_csv_to_excel(
 
         if exception:
             with patch("pandas.read_csv", side_effect=exception):
-                csv_consolidator.search_and_append_csv_to_excel(
-                    date, target_fullnames
-                )
+                csv_consolidator._create_sheet(date, target_fullnames)
                 assert csv_consolidator._copied_count == 0
                 assert csv_consolidator._no_csv_count == 0
                 assert csv_consolidator._failed_count == 4
-                assert len(csv_consolidator._failed_hosts) == 4
+                assert len(csv_consolidator._merge_failed_hosts) == 4
                 return
         else:
-            csv_consolidator.search_and_append_csv_to_excel(
-                date, target_fullnames
-            )
+            csv_consolidator._create_sheet(date, target_fullnames)
 
         assert set(workbook.sheetnames) == {
             "SENTINEL_SHEET",
@@ -454,7 +442,7 @@ def test_search_and_append_csv_to_excel(
             assert csv_consolidator._copied_count == 0
             assert csv_consolidator._no_csv_count == 4
             assert csv_consolidator._failed_count == 0
-            assert len(csv_consolidator._failed_hosts) == 0
+            assert len(csv_consolidator._merge_failed_hosts) == 0
         else:
             for sheet_name in target_fullnames:
                 sheet = workbook[sheet_name]
@@ -462,7 +450,7 @@ def test_search_and_append_csv_to_excel(
             assert csv_consolidator._copied_count == 4
             assert csv_consolidator._no_csv_count == 0
             assert csv_consolidator._failed_count == 0
-            assert len(csv_consolidator._failed_hosts) == 0
+            assert len(csv_consolidator._merge_failed_hosts) == 0
 
 
 def test_remove_sentinel_sheet_exists(tmp_path: Path) -> None:
@@ -480,7 +468,7 @@ def test_remove_sentinel_sheet_exists(tmp_path: Path) -> None:
             writer, sheet_name="OTHER_SHEET", index=False, header=False
         )
 
-        csv_consolidator.delete_sentinel_sheet()
+        csv_consolidator._delete_sentinel_sheet()
         assert "SENTINEL_SHEET" not in workbook.sheetnames
         assert "OTHER_SHEET" in workbook.sheetnames
 
