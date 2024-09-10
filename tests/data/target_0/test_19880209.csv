@@ -1,0 +1,2 @@
+Date_A,Date_B,Processing_Time,JSON
+1988-02-09 00:00:00,1988-02-09 00:00:00,0s,"{""date_a"": ""1988-02-09T00:00:00"", ""date_b"": ""1988-02-09T00:00:00"", ""processing_time"": ""0s"", ""random_key"": null}"

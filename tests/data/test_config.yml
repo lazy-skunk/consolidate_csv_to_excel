@@ -1,0 +1,6 @@
+targets:
+  - target_0
+  - target_1
+  - target_2
+  - target_3
+processing_time_threshold_seconds: 4
