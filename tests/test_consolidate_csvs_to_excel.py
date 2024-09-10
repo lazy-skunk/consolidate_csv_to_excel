@@ -22,91 +22,10 @@ from src.consolidate_csvs_to_excel import (
     TargetHandler,
 )
 
-
-class TestHelper:
-    DATE_FORMAT = "%Y%m%d"
-    YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(DATE_FORMAT)
-    TOMORROW = (datetime.now() + timedelta(days=1)).strftime(DATE_FORMAT)
-    GRAY_WITH_TRANSPARENT = "007F7F7F"
-
-    @staticmethod
-    def create_temp_config_and_return_path(
-        tmp_path: Path, config_data: dict
-    ) -> str:
-        temp_config_path = os.path.join(tmp_path, "temp_config.yaml")
-
-        with open(temp_config_path, "w") as file:
-            yaml.dump(config_data, file)
-
-        return temp_config_path
-
-    @staticmethod
-    def create_malformed_config_and_return_path(tmp_path: Path) -> str:
-        malformed_content = "invalid_yaml: [unclosed list"
-        temp_file = os.path.join(tmp_path, "malformed_config.yaml")
-
-        with open(temp_file, "w") as file:
-            file.write(malformed_content)
-
-        return temp_file
-
-    @staticmethod
-    def prepare_tmp_four_csvs(tmp_path: Path, date_range: List[str]) -> None:
-        RANDOM_KEYS = [None, True, None, True]
-        for date in date_range:
-            for i in range(len(RANDOM_KEYS)):
-                data = []
-                valid_data = []
-                invalid_data = []
-
-                csv_file = f"{tmp_path}/target_{i}/test_{date}.csv"
-
-                csv_directory = os.path.dirname(csv_file)
-                os.makedirs(csv_directory, exist_ok=True)
-
-                date_a = datetime.now() - timedelta(seconds=i)
-                date_b = datetime.now() + timedelta(seconds=i)
-                processing_time = int((date_b - date_a).total_seconds())
-                json_list = [
-                    {
-                        "date_a": date_a.isoformat(),
-                        "date_b": date_b.isoformat(),
-                        "time_difference": f"{processing_time}s",
-                        "random_key": RANDOM_KEYS[i],
-                    }
-                ]
-
-                stringified_json = json.dumps(json_list)
-                valid_data.append(
-                    [
-                        date_a.strftime("%Y-%m-%d %H:%M:%S"),
-                        date_b.strftime("%Y-%m-%d %H:%M:%S"),
-                        f"{processing_time}s",
-                        stringified_json,
-                    ]
-                )
-
-                invalid_data.append(
-                    [
-                        date_a.strftime("%Y-%m-%d %H:%M:%S"),
-                        date_b.strftime("%Y-%m-%d %H:%M:%S"),
-                        "INVALID_PROCESSING_TIME",
-                        "INVALID_JSON",
-                    ]
-                )
-
-                data = valid_data + invalid_data
-
-                df = pd.DataFrame(
-                    data,
-                    columns=[
-                        "date_a",
-                        "date_b",
-                        "processing_time",
-                        "random_key",
-                    ],
-                )
-                df.to_csv(csv_file, index=False)
+_DATE_FORMAT = "%Y%m%d"
+_YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(_DATE_FORMAT)
+_TOMORROW = (datetime.now() + timedelta(days=1)).strftime(_DATE_FORMAT)
+_GRAY_WITH_TRANSPARENT = "007F7F7F"
 
 
 @pytest.mark.parametrize(
@@ -114,7 +33,7 @@ class TestHelper:
     [
         (
             ["test.py"],
-            [TestHelper.YESTERDAY],
+            [_YESTERDAY],
         ),
         (["test.py", "19880209"], ["19880209"]),
         (["test.py", "19880209~19880209"], ["19880209"]),
@@ -143,12 +62,7 @@ def test_get_date_range_or_yesterday(
         (["test.py", "1988029"]),
         (["test.py", "1988-02-09"]),
         (["test.py", "1988~02~09"]),
-        (
-            [
-                "test.py",
-                TestHelper.TOMORROW,
-            ]
-        ),
+        (["test.py", _TOMORROW]),
         (["test.py", "invalid_date"]),
     ],
 )
@@ -160,57 +74,45 @@ def test_get_date_range_or_yesterday_with_invalid_dates(
             DateHandler.get_date_range_or_yesterday()
 
 
-@pytest.mark.parametrize(
-    "config_data, expected, exception",
-    [
-        ({"processing_time_threshold_seconds": 30}, 30, None),
-        (
-            {"processing_time_threshold_seconds": "invalid"},
-            None,
-            ValueError,
-        ),
-        ({}, None, ValueError),
-    ],
-)
-def test_get_processing_time_threshold(
-    tmp_path: Path,
-    config_data: dict,
-    expected: int,
-    exception: type[ValueError] | None,
-) -> None:
-    temp_config_path = TestHelper.create_temp_config_and_return_path(
-        tmp_path, config_data
-    )
+def test_get_processing_time_threshold() -> None:
+    temp_config_path = os.path.join("tests", "data", "test_config.yml")
     config_loader = ConfigLoader(temp_config_path)
     mock_logger = MagicMock(spec=logging.Logger)
+
     with patch.object(config_loader, "_logger", mock_logger):
-        if exception:
-            with pytest.raises(exception):
-                config_loader.get_processing_time_threshold()
-        else:
-            threshold = config_loader.get_processing_time_threshold()
-            assert threshold == expected
+        threshold = config_loader.get_processing_time_threshold()
+        expected = 4
+        assert threshold == expected
 
 
-def test_config_not_found() -> None:
+def test_get_processing_time_threshold_with_nonexistent_file() -> None:
     mock_logger = MagicMock(spec=logging.Logger)
-    config_loader = ConfigLoader("INVALID_CONFIG.YAML")
+    config_loader = ConfigLoader("NONEXISTENT_CONFIG.YAML")
 
     with patch.object(config_loader, "_logger", mock_logger):
         with pytest.raises(FileNotFoundError):
-            config_loader.get("INVALID_KEY")
+            config_loader.get_processing_time_threshold()
 
 
-def test_get_processing_time_threshold_with_malformed_config(
-    tmp_path: Path,
-) -> None:
+def test_get_processing_time_threshold_with_invalid_config() -> None:
+    invalid_config_path = os.path.join("tests", "data", "invalid_yaml.yml")
+    config_loader = ConfigLoader(invalid_config_path)
     mock_logger = MagicMock(spec=logging.Logger)
-    malformed_config_path = TestHelper.create_malformed_config_and_return_path(
-        tmp_path
-    )
-    config_loader = ConfigLoader(malformed_config_path)
+
     with patch.object(config_loader, "_logger", mock_logger):
         with pytest.raises(yaml.YAMLError):
+            config_loader.get_processing_time_threshold()
+
+
+def test_get_processing_time_threshold_with_invalid_threshold() -> None:
+    invalid_threshold_path = os.path.join(
+        "tests", "data", "invalid_threshold.yml"
+    )
+    config_loader = ConfigLoader(invalid_threshold_path)
+    mock_logger = MagicMock(spec=logging.Logger)
+
+    with patch.object(config_loader, "_logger", mock_logger):
+        with pytest.raises(ValueError):
             config_loader.get_processing_time_threshold()
 
 
@@ -244,64 +146,63 @@ def test_get_target_prefixes(
 
 
 @pytest.mark.parametrize(
-    "host_folders, target_prefixes, expected, exception",
+    "target_prefixes, expected",
     [
-        (
-            ["host1_log", "host2_log", "host3_log"],
-            ["host1", "host2"],
-            ["host1_log", "host2_log"],
-            None,
-        ),
-        (
-            ["host1_log", "host2_log", "host3_log"],
-            ["host4"],
-            [],
-            ValueError,
-        ),
+        (["target"], ["target_0", "target_1", "target_2", "target_3"]),
+        (["target_2"], ["target_2"]),
     ],
 )
 def test_get_target_fullnames(
-    host_folders: List[str],
     target_prefixes: List[str],
     expected: List[str],
-    exception: Type[ValueError] | None,
 ) -> None:
-    with patch("os.listdir", return_value=host_folders):
-        if exception:
-            with pytest.raises(exception):
-                TargetHandler.get_target_fullnames(target_prefixes)
-        else:
-            host_fullnames = TargetHandler.get_target_fullnames(
-                target_prefixes
-            )
-            assert host_fullnames == expected
+    test_folders_base_path = os.path.join("tests", "data")
+    with patch(
+        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        test_folders_base_path,
+    ):
+        host_fullnames = TargetHandler.get_target_fullnames(target_prefixes)
+        assert host_fullnames == expected
+
+
+def test_get_target_fullnames_with_nonexistent_target() -> None:
+    test_folders_base_path = os.path.join("tests", "data")
+    with patch(
+        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        test_folders_base_path,
+    ):
+        with pytest.raises(ValueError):
+            TargetHandler.get_target_fullnames(["NONEXISTENT_TARGET"])
 
 
 @pytest.mark.parametrize(
     "date_range, target_fullnames",
     [
         (["19880209", "19880210"], ["target_0", "target_1"]),
-        (["19880209"], ["target_0"]),
+        (["19880209"], ["target_2"]),
     ],
 )
 def test_get_targets_and_csv_path_by_dates(
-    tmp_path: Path,
     date_range: List[str],
     target_fullnames: List[str],
 ) -> None:
-    TestHelper.prepare_tmp_four_csvs(tmp_path, date_range)
+    test_folders_base_path = os.path.join("tests", "data")
 
     expected: Dict[str, Dict[str, str]] = {}
     for date in date_range:
         expected[date] = {}
         for target_fullname in target_fullnames:
-            expected[date][target_fullname] = str(
-                tmp_path / f"{target_fullname}/test_{date}.csv"
+            expected[date][target_fullname] = os.path.join(
+                test_folders_base_path, target_fullname, f"test_{date}.csv"
             )
 
-    result = CSVPathMapper.get_targets_and_csv_path_by_dates(
-        date_range, target_fullnames
-    )
+    with patch(
+        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        test_folders_base_path,
+    ):
+        result = CSVPathMapper.get_targets_and_csv_path_by_dates(
+            date_range, target_fullnames
+        )
 
     assert result == expected
 
