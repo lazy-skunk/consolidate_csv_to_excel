@@ -247,194 +247,46 @@ def test_get_merged_csv_path(
     assert result == expected
 
 
-# def test_create_sentinel_sheet(tmp_path: Path) -> None:
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     tmp_excel = os.path.join(tmp_path, "excel.xlsx")
-#     with pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer:
-#         workbook = writer.book
-#         csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
-#         csv_consolidator._create_sentinel_sheet()
+def test_consolidate_csvs_to_excel() -> None:
+    date = "19880209"
 
-#         assert "SENTINEL_SHEET" in workbook.sheetnames
+    target_prefix = "target"
+    target_with_csv = "target_0"
+    target_with_no_csv = "target_1"
+    target_with_invalid_csv = "target_2"
 
+    csv_path = os.path.join(
+        "tests", "data", target_with_csv, f"test_{date}.csv"
+    )
+    excel_path = os.path.join(
+        "tests", "data", "output", f"{date}_{target_prefix}.xlsx"
+    )
 
-# @pytest.mark.parametrize(
-#     "date, no_csv_found, exception",
-#     [
-#         ("19880209", False, None),
-#         ("INVALID_DATE", True, None),
-#         ("19880209", False, Exception),
-#     ],
-# )
-# def test_search_and_append_csv_to_excel(
-#     tmp_path: Path,
-#     date: str,
-#     no_csv_found: bool,
-#     exception: type[Exception] | None,
-# ) -> None:
-#     TestHelper.prepare_tmp_four_csvs(tmp_path)
+    filtered_targets_and_csv_path = {
+        target_with_csv: csv_path,
+        target_with_no_csv: None,
+        target_with_invalid_csv: "INVALID_CSV_PATH.csv",
+    }
 
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     tmp_excel = os.path.join(tmp_path, "excel.xlsx")
+    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="w") as writer:
+        workbook = writer.book
 
-#     with (
-#         patch(
-#             "src.consolidate_csv_to_excel._TARGET_FOLDERS_BASE_PATH",
-#             f"{tmp_path}",
-#         ),
-#         pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer,
-#     ):
-#         workbook = writer.book
-#         csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
+        csv_consolidator = CSVConsolidator(writer, workbook)
+        csv_consolidator.consolidate_csvs_to_excel(
+            filtered_targets_and_csv_path
+        )
 
-#         pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
-#             writer, sheet_name="SENTINEL_SHEET", index=False, header=False
-#         )
+    added_sheets = workbook.sheetnames
+    assert target_with_csv in added_sheets
+    assert target_with_no_csv in added_sheets
+    assert target_with_invalid_csv not in added_sheets
 
-#         target_fullnames = [f"target_{i}" for i in range(4)]
+    no_csv_sheet = workbook[target_with_no_csv]
+    assert (
+        no_csv_sheet.sheet_properties.tabColor.value == _GRAY_WITH_TRANSPARENT
+    )
 
-#         if exception:
-#             with patch("pandas.read_csv", side_effect=exception):
-#                 csv_consolidator._create_sheet(date, target_fullnames)
-#                 assert csv_consolidator._copied_count == 0
-#                 assert csv_consolidator._no_csv_count == 0
-#                 assert csv_consolidator._failed_count == 4
-#                 assert len(csv_consolidator._merge_failed_hosts) == 4
-#                 return
-#         else:
-#             csv_consolidator._create_sheet(date, target_fullnames)
-
-#         assert set(workbook.sheetnames) == {
-#             "SENTINEL_SHEET",
-#             "target_0",
-#             "target_1",
-#             "target_2",
-#             "target_3",
-#         }
-
-#         if no_csv_found:
-#             for sheet_name in target_fullnames:
-#                 sheet = workbook[sheet_name]
-#                 assert (
-#                     sheet.sheet_properties.tabColor.value
-#                     == TestHelper.GRAY_WITH_TRANSPARENT
-#                 )
-#             assert csv_consolidator._copied_count == 0
-#             assert csv_consolidator._no_csv_count == 4
-#             assert csv_consolidator._failed_count == 0
-#             assert len(csv_consolidator._merge_failed_hosts) == 0
-#         else:
-#             for sheet_name in target_fullnames:
-#                 sheet = workbook[sheet_name]
-#                 assert sheet.sheet_properties.tabColor is None
-#             assert csv_consolidator._copied_count == 4
-#             assert csv_consolidator._no_csv_count == 0
-#             assert csv_consolidator._failed_count == 0
-#             assert len(csv_consolidator._merge_failed_hosts) == 0
-
-
-# def test_remove_sentinel_sheet_exists(tmp_path: Path) -> None:
-#     mock_logger = MagicMock(spec=logging.Logger)
-#     tmp_excel = os.path.join(tmp_path, "excel.xlsx")
-
-#     with pd.ExcelWriter(tmp_excel, engine="openpyxl", mode="w") as writer:
-#         workbook = writer.book
-#         csv_consolidator = CSVConsolidator(writer, workbook, mock_logger)
-
-#         pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
-#             writer, sheet_name="SENTINEL_SHEET", index=False, header=False
-#         )
-#         pd.DataFrame({"A": ["OTHER_SHEET"]}).to_excel(
-#             writer, sheet_name="OTHER_SHEET", index=False, header=False
-#         )
-
-#         csv_consolidator._delete_sentinel_sheet()
-#         assert "SENTINEL_SHEET" not in workbook.sheetnames
-#         assert "OTHER_SHEET" in workbook.sheetnames
-
-
-# def test_get_summary(csv_consolidator: CSVConsolidator) -> None:
-#     summary = csv_consolidator.get_summary()
-#     assert summary == {
-#         "copied": 0,
-#         "no_csv": 0,
-#         "failed": 0,
-#         "failed_hosts": [],
-#     }
-
-#     csv_consolidator._copied_count = 1
-#     csv_consolidator._no_csv_count = 2
-#     csv_consolidator._failed_count = 3
-#     csv_consolidator._failed_hosts = ["host1", "host2"]
-
-#     summary = csv_consolidator.get_summary()
-#     assert summary == {
-#         "copied": 1,
-#         "no_csv": 2,
-#         "failed": 3,
-#         "failed_hosts": ["host1", "host2"],
-#     }
-
-
-# def test_highlight_cells_and_sheet_tabs(
-#     excel_analyzer: ExcelAnalyzer,
-#     prepare_tmp_excel: None,
-#     tmp_path_for_excel: str,
-# ) -> None:
-#     threshold = 4  # 0, 2, 4, 6
-
-#     excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
-#         tmp_path_for_excel, threshold
-#     )
-#     NO_COLOR_WITH_TRANSPARENT = "00000000"
-#     workbook = load_workbook(tmp_path_for_excel)
-#     try:
-#         for sheet_name in workbook.sheetnames:
-#             sheet = workbook[sheet_name]
-
-#             has_yellow_tab = sheet.sheet_properties.tabColor is not None
-
-#             has_highlighted_cells = any(
-#                 cell.fill.start_color.rgb != NO_COLOR_WITH_TRANSPARENT
-#                 for row in sheet.iter_rows(min_row=2)
-#                 for cell in row
-#             )
-
-#             if has_yellow_tab:
-#                 assert has_highlighted_cells
-#             else:
-#                 assert not has_highlighted_cells
-#     finally:
-#         workbook.close()
-
-
-# def test_reorder_sheets_by_color(
-#     excel_analyzer: ExcelAnalyzer,
-#     prepare_tmp_excel_for_reordering: None,
-#     tmp_path_for_excel: str,
-# ) -> None:
-#     try:
-#         workbook = load_workbook(tmp_path_for_excel)
-#         initial_order = workbook.sheetnames
-#         assert initial_order == ["Other_Sheet", "Gray_Sheet", "Yellow_Sheet"]
-
-#         excel_analyzer.reorder_sheets_by_color(tmp_path_for_excel)
-
-#         workbook = load_workbook(tmp_path_for_excel)
-#         reordered_sheet_names = workbook.sheetnames
-
-#         expected_order = ["Yellow_Sheet", "Other_Sheet", "Gray_Sheet"]
-
-#         assert reordered_sheet_names == expected_order
-#     finally:
-#         workbook.close()
-
-
-# def test_get_hosts_to_check(
-#     excel_analyzer: ExcelAnalyzer,
-# ) -> None:
-#     excel_analyzer._hosts_to_check = {"target_1", "target_2", "target_3"}
-
-#     hosts_to_check = excel_analyzer.get_hosts_to_check()
-
-#     assert hosts_to_check == {"target_1", "target_2", "target_3"}
+    assert (
+        target_with_invalid_csv
+        in csv_consolidator.get_merge_failed_hosts()["merge_failed_hosts"]
+    )
