@@ -13,6 +13,7 @@ import yaml
 from openpyxl import load_workbook
 
 from src.consolidate_csvs_to_excel import (
+    _EXCEL_FOLDER_PATH,
     ConfigLoader,
     CSVConsolidator,
     CSVPathMapper,
@@ -207,95 +208,43 @@ def test_get_targets_and_csv_path_by_dates(
     assert result == expected
 
 
-# @pytest.mark.parametrize(
-#     "argv, targets, expected",
-#     [
-#         (["test.py"], ["target1", "target2"], "config"),
-#         (
-#             ["test.py", "19880209"],
-#             ["target1", "target2"],
-#             "config",
-#         ),
-#         (
-#             ["test.py", "19880209", "target"],
-#             ["target1", "target2"],
-#             "target1_target2",
-#         ),
-#     ],
-# )
-# def test_create_file_name_suffix(
-#     argv: List[str], targets: List[str], expected: str
-# ) -> None:
-#     with patch.object(sys, "argv", argv):
-#         result = FileUtility.create_file_name_suffix(targets)
-#         assert result == expected
+def test_create_file_name_suffix() -> None:
+    date = "19880209"
+    suffix = "target_0"
+
+    result = FileUtility.create_excel_path(date, suffix)
+
+    expected = os.path.join(_EXCEL_FOLDER_PATH, date, f"{date}_{suffix}.xlsx")
+    assert result == expected
 
 
-# @pytest.mark.parametrize(
-#     "argv, suffix",
-#     [
-#         (["test.py", "19880209", "target"], "target1_target2"),
-#         (["test.py", "19880209"], "config"),
-#         (["test.py"], "config"),
-#     ],
-# )
-# def test_create_excel_path(
-#     tmp_path: Path, argv: List[str], suffix: str
-# ) -> None:
-#     DATE = "19880209"
+def test_create_excel_directory(tmp_path: str) -> None:
+    excel_file_path = os.path.join(tmp_path, "19880209", "19880209_file.xlsx")
+    excel_directory = os.path.dirname(excel_file_path)
 
-#     with (
-#         patch("sys.argv", argv),
-#         patch(
-#             "src.consolidate_csv_to_excel._EXCEL_FOLDER_PATH",
-#             tmp_path,
-#         ),
-#     ):
-#         expected = os.path.join(
-#             tmp_path,
-#             DATE,
-#             f"{DATE}_{suffix}.xlsx",
-#         )
-
-#         result = FileUtility.create_excel_path(DATE, suffix)
-#         assert result == expected
+    assert not os.path.exists(excel_directory)
+    FileUtility.create_directory(excel_file_path)
+    assert os.path.exists(excel_directory)
 
 
-# def test_create_excel_directory(tmp_path: str) -> None:
-#     excel_file_path = os.path.join(tmp_path, "19880209", "19880209_file.xlsx")
-#     excel_directory = os.path.dirname(excel_file_path)
-
-#     assert not os.path.exists(excel_directory)
-#     FileUtility.create_directory(excel_file_path)
-#     assert os.path.exists(excel_directory)
-
-
-# @pytest.mark.parametrize(
-#     "target_folder_path, date, file_exists, expected",
-#     [
-#         (
-#             "/path/to/target",
-#             "19880209",
-#             True,
-#             "/path/to/target/test_19880209.csv",
-#         ),
-#         (
-#             "/path/to/target",
-#             "19880209",
-#             False,
-#             None,
-#         ),
-#     ],
-# )
-# def test_get_merged_csv_path(
-#     target_folder_path: str,
-#     date: str,
-#     file_exists: bool,
-#     expected: str | None,
-# ) -> None:
-#     with patch("os.path.exists", return_value=file_exists):
-#         result = FileUtility.get_merged_csv_path(target_folder_path, date)
-#         assert result == expected
+@pytest.mark.parametrize(
+    "target_folder_path, date, expected",
+    [
+        (
+            "tests/data/target_0/",
+            "19880209",
+            "tests/data/target_0/test_19880209.csv",
+        ),
+        ("tests/data/target_4/", "19880209", None),
+    ],
+)
+def test_get_merged_csv_path(
+    target_folder_path: str,
+    date: str,
+    expected: str | None,
+) -> None:
+    result = FileUtility.get_csv_path(target_folder_path, date)
+    assert result == expected
 
 
 # def test_create_sentinel_sheet(tmp_path: Path) -> None:
