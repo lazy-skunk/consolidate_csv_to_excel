@@ -303,14 +303,13 @@ def test_consolidate_csvs_to_excel() -> None:
 
 
 def test_highlight_cells_and_sheet_tab_by_criteria() -> None:
-    _initialize_excel_data("19880209_target")
-
     date = "19880209"
     excel_path = os.path.join(
-        "tests", "data", date, f"{date}_target_colored.xlsx"
+        "tests", "data", date, f"{date}_target_highlight.xlsx"
     )
     processing_time_threshold = 4
 
+    _initialize_excel_data("19880209_target_highlight")
     with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
         workbook = writer.book
 
