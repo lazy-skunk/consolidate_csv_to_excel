@@ -1,16 +1,14 @@
-import json
 import logging
 import os
+import shutil
 import sys
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Type
+from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 import yaml
-from openpyxl import load_workbook
 
 from src.consolidate_csvs_to_excel import (
     _EXCEL_FOLDER_PATH,
@@ -27,6 +25,18 @@ _DATE_FORMAT = "%Y%m%d"
 _YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(_DATE_FORMAT)
 _TOMORROW = (datetime.now() + timedelta(days=1)).strftime(_DATE_FORMAT)
 _GRAY_WITH_TRANSPARENT = "007F7F7F"
+
+
+def _initialize_excel_data(file_name_without_extension: str) -> None:
+    TEST_DATA_COMMON_PATH = os.path.join("tests", "data", "19880209")
+    original_excel_path = os.path.join(
+        TEST_DATA_COMMON_PATH, f"{file_name_without_extension}_org.xlsx"
+    )
+    excel_path = os.path.join(
+        TEST_DATA_COMMON_PATH, f"{file_name_without_extension}.xlsx"
+    )
+
+    shutil.copy(original_excel_path, excel_path)
 
 
 @pytest.mark.parametrize(
@@ -290,3 +300,21 @@ def test_consolidate_csvs_to_excel() -> None:
         target_with_invalid_csv
         in csv_consolidator.get_merge_failed_hosts()["merge_failed_hosts"]
     )
+
+
+def test_highlight_cells_and_sheet_tab_by_criteria() -> None:
+    _initialize_excel_data("19880209_target")
+
+    date = "19880209"
+    excel_path = os.path.join(
+        "tests", "data", date, f"{date}_target_colored.xlsx"
+    )
+    processing_time_threshold = 4
+
+    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
+        workbook = writer.book
+
+        excel_analyzer = ExcelAnalyzer(workbook)
+        excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
+            processing_time_threshold
+        )
