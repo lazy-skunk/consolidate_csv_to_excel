@@ -16,7 +16,8 @@ def patch_target_folders_base_path(
     tmp_path: Path,
 ) -> Generator[None, None, None]:
     with patch(
-        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH", tmp_path
+        "src.consolidate_csvs_to_excel_by_date._TARGET_FOLDERS_BASE_PATH",
+        tmp_path,
     ):
         yield
 
