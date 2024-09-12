@@ -283,8 +283,12 @@ class CSVConsolidator:
             self._writer, sheet_name=target_name, index=False, header=False
         )
 
-        GRAY = "7F7F7F"
-        self._writer.sheets[target_name].sheet_properties.tabColor = GRAY
+        _TRANSPARENT = "FF"
+        _GRAY = "7F7F7F"
+        _GRAY_WITH_TRANSPARENT = _TRANSPARENT + _GRAY
+        self._writer.sheets[target_name].sheet_properties.tabColor = (
+            _GRAY_WITH_TRANSPARENT
+        )
 
     def _create_sheets(
         self, filtered_targets_and_csv_path: dict[str, str | None]
@@ -325,7 +329,7 @@ class CSVConsolidator:
 
 class ExcelAnalyzer:
     _logger = CustomLogger.get_logger()
-    _TRANSPARENT = "00"
+    _TRANSPARENT = "FF"
     _YELLOW = "FFFF7F"
     _GRAY = "7F7F7F"
     _YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW

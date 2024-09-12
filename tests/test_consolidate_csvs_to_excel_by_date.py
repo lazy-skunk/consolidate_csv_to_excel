@@ -25,7 +25,7 @@ from src.consolidate_csvs_to_excel_by_date import (
 _DATE_FORMAT = "%Y%m%d"
 _YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(_DATE_FORMAT)
 _TOMORROW = (datetime.now() + timedelta(days=1)).strftime(_DATE_FORMAT)
-_TRANSPARENT = "00"
+_TRANSPARENT = "FF"
 _YELLOW = "FFFF7F"
 _GRAY = "7F7F7F"
 _YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW
