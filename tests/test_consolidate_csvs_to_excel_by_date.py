@@ -9,8 +9,9 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 import yaml
+from openpyxl.worksheet.worksheet import Worksheet
 
-from src.consolidate_csvs_to_excel import (
+from src.consolidate_csvs_to_excel_by_date import (
     _EXCEL_FOLDER_PATH,
     ConfigLoader,
     CSVConsolidator,
@@ -24,7 +25,11 @@ from src.consolidate_csvs_to_excel import (
 _DATE_FORMAT = "%Y%m%d"
 _YESTERDAY = (datetime.now() - timedelta(days=1)).strftime(_DATE_FORMAT)
 _TOMORROW = (datetime.now() + timedelta(days=1)).strftime(_DATE_FORMAT)
-_GRAY_WITH_TRANSPARENT = "007F7F7F"
+_TRANSPARENT = "00"
+_YELLOW = "FFFF7F"
+_GRAY = "7F7F7F"
+_YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW
+_GRAY_WITH_TRANSPARENT = _TRANSPARENT + _GRAY
 
 
 def _initialize_excel_data(file_name_without_extension: str) -> None:
@@ -169,7 +174,7 @@ def test_get_target_fullnames(
 ) -> None:
     test_folders_base_path = os.path.join("tests", "data")
     with patch(
-        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        "src.consolidate_csvs_to_excel_by_date._TARGET_FOLDERS_BASE_PATH",
         test_folders_base_path,
     ):
         host_fullnames = TargetHandler.get_target_fullnames(target_prefixes)
@@ -179,7 +184,7 @@ def test_get_target_fullnames(
 def test_get_target_fullnames_with_nonexistent_target() -> None:
     test_folders_base_path = os.path.join("tests", "data")
     with patch(
-        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        "src.consolidate_csvs_to_excel_by_date._TARGET_FOLDERS_BASE_PATH",
         test_folders_base_path,
     ):
         with pytest.raises(ValueError):
@@ -208,7 +213,7 @@ def test_get_targets_and_csv_path_by_dates(
             )
 
     with patch(
-        "src.consolidate_csvs_to_excel._TARGET_FOLDERS_BASE_PATH",
+        "src.consolidate_csvs_to_excel_by_date._TARGET_FOLDERS_BASE_PATH",
         test_folders_base_path,
     ):
         result = CSVPathMapper.get_targets_and_csv_path_by_dates(
@@ -303,6 +308,24 @@ def test_consolidate_csvs_to_excel() -> None:
 
 
 def test_highlight_cells_and_sheet_tab_by_criteria() -> None:
+    def _check_cell_highlighting(
+        worksheet: Worksheet, highlighted_cells: List[str]
+    ) -> None:
+        for row in worksheet.iter_rows():
+            for cell in row:
+                if cell.coordinate in highlighted_cells:
+                    assert cell.fill.patternType is not None
+                else:
+                    assert cell.fill.patternType is None
+
+    def _check_sheet_tab_color(
+        worksheet: Worksheet, expected_color: str | None
+    ) -> None:
+        if expected_color:
+            assert worksheet.sheet_properties.tabColor.value == expected_color
+        else:
+            assert worksheet.sheet_properties.tabColor is None
+
     date = "19880209"
     excel_path = os.path.join(
         "tests", "data", date, f"{date}_target_highlight.xlsx"
@@ -317,3 +340,33 @@ def test_highlight_cells_and_sheet_tab_by_criteria() -> None:
         excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
             processing_time_threshold
         )
+
+        worksheet = workbook["target_0"]
+        _check_cell_highlighting(worksheet, [])
+        _check_sheet_tab_color(worksheet, None)
+
+        worksheet = workbook["target_1"]
+        _check_cell_highlighting(worksheet, ["D2"])
+        _check_sheet_tab_color(worksheet, _YELLOW_WITH_TRANSPARENT)
+
+        worksheet = workbook["target_2"]
+        _check_cell_highlighting(worksheet, ["C2"])
+        _check_sheet_tab_color(worksheet, _YELLOW_WITH_TRANSPARENT)
+
+        worksheet = workbook["target_3"]
+        _check_cell_highlighting(worksheet, ["C2", "D2"])
+        _check_sheet_tab_color(worksheet, _YELLOW_WITH_TRANSPARENT)
+
+
+def test_reorder_sheets_by_color() -> None:
+    date = "19880209"
+    excel_path = os.path.join(
+        "tests", "data", date, f"{date}_target_reorder.xlsx"
+    )
+
+    _initialize_excel_data("19880209_target_reorder")
+    with pd.ExcelWriter(excel_path, engine="openpyxl", mode="a") as writer:
+        workbook = writer.book
+
+        excel_analyzer = ExcelAnalyzer(workbook)
+        excel_analyzer.reorder_sheets_by_color()
