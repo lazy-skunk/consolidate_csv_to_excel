@@ -450,7 +450,7 @@ class ExcelAnalyzer:
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
-                sheet.sheet_properties.tabColor = self._YELLOW
+                sheet.sheet_properties.tabColor = self._YELLOW_WITH_TRANSPARENT
                 self._log_detected_anomalies(host_name)
 
             self._logger.info(
