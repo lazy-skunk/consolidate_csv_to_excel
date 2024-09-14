@@ -282,8 +282,12 @@ class CSVConsolidator:
             self._writer, sheet_name=date, index=False, header=False
         )
 
+        TRANSPARENT = "FF"
         GRAY = "7F7F7F"
-        self._writer.sheets[date].sheet_properties.tabColor = GRAY
+        GRAY_WITH_TRANSPARENT = TRANSPARENT + GRAY
+        self._writer.sheets[date].sheet_properties.tabColor = (
+            GRAY_WITH_TRANSPARENT
+        )
 
     def _create_sheets(
         self, csv_paths_for_each_date: dict[str, str | None]
@@ -324,7 +328,7 @@ class CSVConsolidator:
 
 class ExcelAnalyzer:
     _logger = CustomLogger.get_logger()
-    _TRANSPARENT = "00"
+    _TRANSPARENT = "FF"
     _YELLOW = "FFFF7F"
     _GRAY = "7F7F7F"
     _YELLOW_WITH_TRANSPARENT = _TRANSPARENT + _YELLOW
@@ -398,7 +402,9 @@ class ExcelAnalyzer:
                     item.get("random_key") is True
                     for item in alert_detail_data
                 ):
-                    self._highlight_cell(alert_detail_cell, self._YELLOW)
+                    self._highlight_cell(
+                        alert_detail_cell, self._YELLOW_WITH_TRANSPARENT
+                    )
                     return True
             except json.JSONDecodeError:
                 self._logger.warning(
@@ -443,7 +449,7 @@ class ExcelAnalyzer:
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
-                sheet.sheet_properties.tabColor = self._YELLOW
+                sheet.sheet_properties.tabColor = self._YELLOW_WITH_TRANSPARENT
                 self._log_detected_anomalies(date)
 
             self._logger.info(
