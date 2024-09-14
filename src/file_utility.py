@@ -11,8 +11,8 @@ class FileUtility:
         return excel_path
 
     @staticmethod
-    def create_date_based_excel_path(date: str, suffix: str) -> str:
-        excel_name = f"{date}_{suffix}.xlsx"
+    def create_date_based_excel_path(date: str, target_prefix: str) -> str:
+        excel_name = f"{date}_{target_prefix}.xlsx"
         excel_path = os.path.join(_EXCEL_FOLDER_PATH, date, excel_name)
         return excel_path
 
