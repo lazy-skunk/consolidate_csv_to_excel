@@ -337,8 +337,8 @@ class ExcelAnalyzer:
 
     def __init__(self, workbook: Workbook) -> None:
         self._workbook = workbook
-        self._hosts_with_threshold_exceedance: set[str] = set()
-        self._hosts_with_anomaly_value: set[str] = set()
+        self._sheet_names_with_threshold_exceedance: set[str] = set()
+        self._sheet_names_with_anomaly_value: set[str] = set()
 
     @staticmethod
     def _highlight_cell(cell: Cell, color_code: str) -> None:
@@ -413,17 +413,14 @@ class ExcelAnalyzer:
                 )
         return False
 
-    def _log_detected_anomalies(self, host_name: str) -> None:
-        if host_name in self._hosts_with_threshold_exceedance:
+    def _log_detected_anomalies(self, sheet_name: str) -> None:
+        if sheet_name in self._sheet_names_with_threshold_exceedance:
             self._logger.warning(
-                "Exceeded processing time threshold detected"
-                f" for host: {host_name}."
+                f"Exceeded processing time threshold detected : {sheet_name}"
             )
 
-        if host_name in self._hosts_with_anomaly_value:
-            self._logger.warning(
-                f"Anomaly value detected for host: {host_name}."
-            )
+        if sheet_name in self._sheet_names_with_anomaly_value:
+            self._logger.warning(f"Anomaly value detected : {sheet_name}")
 
     def highlight_cells_and_sheet_tab_by_criteria(
         self, threshold: int
@@ -431,10 +428,10 @@ class ExcelAnalyzer:
         self._logger.info("Starting to highlight.")
         total_sheets = len(self._workbook.sheetnames)
 
-        for current_sheet_number, host_name in enumerate(
+        for current_sheet_number, sheet_name in enumerate(
             self._workbook.sheetnames, start=1
         ):
-            sheet = self._workbook[host_name]
+            sheet = self._workbook[sheet_name]
             has_highlighted_cell = False
 
             for row in sheet.iter_rows(min_row=_DATA_START_ROW):
@@ -444,19 +441,19 @@ class ExcelAnalyzer:
                 if self._check_and_highlight_processing_time(
                     processing_time_cell, threshold
                 ):
-                    self._hosts_with_threshold_exceedance.add(host_name)
+                    self._sheet_names_with_threshold_exceedance.add(sheet_name)
                     has_highlighted_cell = True
 
                 if self._check_and_highlight_alert_detail(alert_detail_cell):
-                    self._hosts_with_anomaly_value.add(host_name)
+                    self._sheet_names_with_anomaly_value.add(sheet_name)
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
                 sheet.sheet_properties.tabColor = self._YELLOW_WITH_TRANSPARENT
-                self._log_detected_anomalies(host_name)
+                self._log_detected_anomalies(sheet_name)
 
             self._logger.info(
-                f"Analyzed sheet: {host_name}."
+                f"Analyzed sheet: {sheet_name}."
                 f" ({current_sheet_number}/{total_sheets})"
             )
         self._logger.info("Highlighting completed.")
@@ -498,8 +495,8 @@ class ExcelAnalyzer:
 
     def get_analysis_results(self) -> Dict[str, set[str]]:
         return {
-            "hosts_with_threshold_exceedance": self._hosts_with_threshold_exceedance,  # noqa E501
-            "hosts_with_anomaly_value": self._hosts_with_anomaly_value,
+            "sheet_names_with_threshold_exceedance": self._sheet_names_with_threshold_exceedance,  # noqa E501
+            "sheet_names_with_anomaly_value": self._sheet_names_with_anomaly_value,# noqa E501
         }
 
 
@@ -548,8 +545,8 @@ class ProcessingSummary:
             date,
             {
                 "merge_failed_hosts": set(),
-                "hosts_with_threshold_exceedance": set(),
-                "hosts_with_anomaly_value": set(),
+                "sheet_names_with_threshold_exceedance": set(),
+                "sheet_names_with_anomaly_value": set(),
             },
         )
 
@@ -558,31 +555,33 @@ class ProcessingSummary:
         )
 
         self.daily_processing_results[date][
-            "hosts_with_threshold_exceedance"
-        ].update(analysis_results["hosts_with_threshold_exceedance"])
+            "sheet_names_with_threshold_exceedance"
+        ].update(analysis_results["sheet_names_with_threshold_exceedance"])
 
-        self.daily_processing_results[date]["hosts_with_anomaly_value"].update(
-            analysis_results["hosts_with_anomaly_value"]
-        )
+        self.daily_processing_results[date][
+            "sheet_names_with_anomaly_value"
+        ].update(analysis_results["sheet_names_with_anomaly_value"])
 
     def _summarize_daily_processing_results(self) -> None:
         for date, summary in self.daily_processing_results.items():
             day_summary = []
 
-            if summary.get("hosts_with_threshold_exceedance"):
-                hosts_with_threshold_exceedance = summary[
-                    "hosts_with_threshold_exceedance"
+            if summary.get("sheet_names_with_threshold_exceedance"):
+                sheet_names_with_threshold_exceedance = summary[
+                    "sheet_names_with_threshold_exceedance"
                 ]
                 day_summary.append(
                     "Exceeded threshold detected for hosts:"
-                    f" {hosts_with_threshold_exceedance}"
+                    f" {sheet_names_with_threshold_exceedance}"
                 )
 
-            if summary.get("hosts_with_anomaly_value"):
-                hosts_with_anomaly_value = summary["hosts_with_anomaly_value"]
+            if summary.get("sheet_names_with_anomaly_value"):
+                sheet_names_with_anomaly_value = summary[
+                    "sheet_names_with_anomaly_value"
+                ]
                 day_summary.append(
                     "Anomaly value detected for hosts:"
-                    f" {hosts_with_anomaly_value}"
+                    f" {sheet_names_with_anomaly_value}"
                 )
 
             if summary.get("merge_failed_hosts"):
