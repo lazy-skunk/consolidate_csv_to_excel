@@ -283,11 +283,11 @@ class CSVConsolidator:
             self._writer, sheet_name=target_name, index=False, header=False
         )
 
-        _TRANSPARENT = "FF"
-        _GRAY = "7F7F7F"
-        _GRAY_WITH_TRANSPARENT = _TRANSPARENT + _GRAY
+        TRANSPARENT = "FF"
+        GRAY = "7F7F7F"
+        GRAY_WITH_TRANSPARENT = TRANSPARENT + GRAY
         self._writer.sheets[target_name].sheet_properties.tabColor = (
-            _GRAY_WITH_TRANSPARENT
+            GRAY_WITH_TRANSPARENT
         )
 
     def _create_sheets(
@@ -403,7 +403,9 @@ class ExcelAnalyzer:
                     item.get("random_key") is True
                     for item in alert_detail_data
                 ):
-                    self._highlight_cell(alert_detail_cell, self._YELLOW)
+                    self._highlight_cell(
+                        alert_detail_cell, self._YELLOW_WITH_TRANSPARENT
+                    )
                     return True
             except json.JSONDecodeError:
                 self._logger.warning(
