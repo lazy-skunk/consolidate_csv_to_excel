@@ -78,4 +78,4 @@ class CSVConsolidator:
         self._logger.info("Merging completed.")
 
     def get_merge_failed_sheet_names(self) -> Dict[str, set[str]]:
-        return {"merge_failed_hosts": self._merge_failed_sheet_names}
+        return {"merge_failed_sheet_names": self._merge_failed_sheet_names}
