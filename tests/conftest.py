@@ -1,14 +1,8 @@
-import json
-import logging
-import os
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Generator
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import pandas as pd
 import pytest
-from openpyxl import Workbook
 
 
 @pytest.fixture(autouse=True)
@@ -16,7 +10,7 @@ def patch_target_folders_base_path(
     tmp_path: Path,
 ) -> Generator[None, None, None]:
     with patch(
-        "src.consolidate_csvs_to_excel_by_date._TARGET_FOLDERS_BASE_PATH",
+        "src.csv_path_mapper._TARGET_FOLDERS_BASE_PATH",
         tmp_path,
     ):
         yield
