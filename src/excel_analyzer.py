@@ -110,7 +110,7 @@ class ExcelAnalyzer:
         if sheet_name in self._anomaly_detected_sheets:
             self._logger.warning(f"Anomaly value detected: {sheet_name}")
 
-    def highlight_cells_and_sheet_tab_by_criteria(
+    def highlight_cells_and_sheet_tabs_by_criteria(
         self, threshold: int
     ) -> None:
         self._logger.info("Starting to highlight.")

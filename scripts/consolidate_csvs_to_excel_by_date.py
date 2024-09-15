@@ -80,7 +80,7 @@ def main() -> None:
                     )
 
                     excel_analyzer = ExcelAnalyzer(workbook)
-                    excel_analyzer.highlight_cells_and_sheet_tab_by_criteria(
+                    excel_analyzer.highlight_cells_and_sheet_tabs_by_criteria(
                         processing_time_threshold
                     )
                     excel_analyzer.reorder_sheets_by_color()
