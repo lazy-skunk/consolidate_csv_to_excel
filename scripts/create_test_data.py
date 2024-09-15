@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 
-def create_test_csv() -> None:
+def create_test_csv() -> None:  # pragma: no cover
     BASE_DATE = datetime.fromisoformat("19880209")
     data = []
 
