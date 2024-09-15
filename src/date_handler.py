@@ -14,14 +14,14 @@ class DateHandler:
             raise ValueError(
                 f"Date must be {cls._DATE_LENGTH} digits in YYYYMMDD format."
                 " For a date range, please use the format YYYYMMDD~YYYYMMDD."
-                f" Input value : {input_date}"
+                f" Input value: {input_date}"
             )
 
         date = datetime.datetime.strptime(input_date, DateHandler._DATE_FORMAT)
 
         if date > datetime.datetime.now():
             raise ValueError(
-                f"Future date specified. Input value : {input_date}"
+                f"Future date specified. Input value: {input_date}"
             )
 
         return date

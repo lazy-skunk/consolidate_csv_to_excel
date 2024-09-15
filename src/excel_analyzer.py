@@ -183,6 +183,6 @@ class ExcelAnalyzer:
 
     def get_analysis_results(self) -> Dict[str, set[str]]:
         return {
-            "threshold_exceeded_sheets": self._threshold_exceeded_sheets,
-            "anomaly_detected_sheets": self._anomaly_detected_sheets,
+            "threshold_exceeded": self._threshold_exceeded_sheets,
+            "anomaly_detected": self._anomaly_detected_sheets,
         }
