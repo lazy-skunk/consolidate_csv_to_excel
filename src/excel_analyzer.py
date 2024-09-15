@@ -25,8 +25,8 @@ class ExcelAnalyzer:
 
     def __init__(self, workbook: Workbook) -> None:
         self._workbook = workbook
-        self._sheet_names_with_threshold_exceedance: set[str] = set()
-        self._sheet_names_with_anomaly_value: set[str] = set()
+        self._threshold_exceeded_sheets: set[str] = set()
+        self._anomaly_detected_sheets: set[str] = set()
 
     @staticmethod
     def _highlight_cell(cell: Cell, color_code: str) -> None:
@@ -35,9 +35,9 @@ class ExcelAnalyzer:
 
     @staticmethod
     def _calculate_color_based_on_excess_ratio(
-        processing_time_seconds: int, threshold: int
+        processing_time: int, threshold: int
     ) -> str:
-        excess_ratio = (processing_time_seconds - threshold) / threshold
+        excess_ratio = (processing_time - threshold) / threshold
         clamped_excess_ratio = min(excess_ratio, 1)
 
         MAX_GREEN_VALUE = 255
@@ -102,13 +102,13 @@ class ExcelAnalyzer:
         return False
 
     def _log_detected_anomalies(self, sheet_name: str) -> None:
-        if sheet_name in self._sheet_names_with_threshold_exceedance:
+        if sheet_name in self._threshold_exceeded_sheets:
             self._logger.warning(
-                f"Exceeded processing time threshold detected : {sheet_name}"
+                f"Processing time threshold exceeded: {sheet_name}"
             )
 
-        if sheet_name in self._sheet_names_with_anomaly_value:
-            self._logger.warning(f"Anomaly value detected : {sheet_name}")
+        if sheet_name in self._anomaly_detected_sheets:
+            self._logger.warning(f"Anomaly value detected: {sheet_name}")
 
     def highlight_cells_and_sheet_tab_by_criteria(
         self, threshold: int
@@ -129,11 +129,11 @@ class ExcelAnalyzer:
                 if self._check_and_highlight_processing_time(
                     processing_time_cell, threshold
                 ):
-                    self._sheet_names_with_threshold_exceedance.add(sheet_name)
+                    self._threshold_exceeded_sheets.add(sheet_name)
                     has_highlighted_cell = True
 
                 if self._check_and_highlight_alert_detail(alert_detail_cell):
-                    self._sheet_names_with_anomaly_value.add(sheet_name)
+                    self._anomaly_detected_sheets.add(sheet_name)
                     has_highlighted_cell = True
 
             if has_highlighted_cell:
@@ -183,6 +183,6 @@ class ExcelAnalyzer:
 
     def get_analysis_results(self) -> Dict[str, set[str]]:
         return {
-            "sheet_names_with_threshold_exceedance": self._sheet_names_with_threshold_exceedance,  # noqa E501
-            "sheet_names_with_anomaly_value": self._sheet_names_with_anomaly_value,  # noqa E501
+            "threshold_exceeded_sheets": self._threshold_exceeded_sheets,
+            "anomaly_detected_sheets": self._anomaly_detected_sheets,
         }

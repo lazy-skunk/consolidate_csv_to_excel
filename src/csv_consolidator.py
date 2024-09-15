@@ -16,7 +16,7 @@ class CSVConsolidator:
     def __init__(self, writer: pd.ExcelWriter, workbook: Workbook) -> None:
         self._writer = writer
         self._workbook = workbook
-        self._merge_failed_sheet_names: set[str] = set()
+        self._merge_failed_info: set[str] = set()
 
     def _create_sentinel_sheet(self) -> None:
         pd.DataFrame({"A": ["SENTINEL_SHEET"]}).to_excel(
@@ -32,7 +32,7 @@ class CSVConsolidator:
             df.to_excel(self._writer, sheet_name=sheet_name, index=False)
         except Exception as e:
             self._logger.error(f"Failed to read CSV file at {csv_path}: {e}")
-            self._merge_failed_sheet_names.add(sheet_name)
+            self._merge_failed_info.add(sheet_name)
 
     def _create_no_csv_sheet(self, sheet_name: str) -> None:
         df_for_no_csv = pd.DataFrame({"A": ["No CSV file found."]})
@@ -77,5 +77,5 @@ class CSVConsolidator:
 
         self._logger.info("Merging completed.")
 
-    def get_merge_failed_sheet_names(self) -> Dict[str, set[str]]:
-        return {"merge_failed_sheet_names": self._merge_failed_sheet_names}
+    def get_merge_failed_info(self) -> Dict[str, set[str]]:
+        return {"merge_failed": self._merge_failed_info}

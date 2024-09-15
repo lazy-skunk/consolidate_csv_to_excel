@@ -50,8 +50,8 @@ class ProcessingSummary:
             key,
             {
                 "merge_failed_sheets": set(),
-                "sheets_with_threshold_exceedance": set(),
-                "sheets_with_anomaly_value": set(),
+                "threshold_exceeded_sheets": set(),
+                "anomaly_detected_sheets": set(),
             },
         )
 
@@ -59,33 +59,31 @@ class ProcessingSummary:
             merge_failed_info["merge_failed_sheets"]
         )
 
-        self.daily_processing_results[key][
-            "sheets_with_threshold_exceedance"
-        ].update(analysis_results["sheets_with_threshold_exceedance"])
+        self.daily_processing_results[key]["threshold_exceeded_sheets"].update(
+            analysis_results["threshold_exceeded_sheets"]
+        )
 
-        self.daily_processing_results[key]["sheets_with_anomaly_value"].update(
-            analysis_results["sheets_with_anomaly_value"]
+        self.daily_processing_results[key]["anomaly_detected_sheets"].update(
+            analysis_results["anomaly_detected_sheets"]
         )
 
     def _summarize_daily_processing_results(self) -> None:
         for date, summary in self.daily_processing_results.items():
             day_summary = []
 
-            if summary.get("sheets_with_threshold_exceedance"):
-                sheets_with_threshold_exceedance = summary[
-                    "sheets_with_threshold_exceedance"
+            if summary.get("threshold_exceeded_sheets"):
+                threshold_exceeded_sheets = summary[
+                    "threshold_exceeded_sheets"
                 ]
                 day_summary.append(
                     "Exceeded threshold detected :"
-                    f" {sheets_with_threshold_exceedance}"
+                    f" {threshold_exceeded_sheets}"
                 )
 
-            if summary.get("sheets_with_anomaly_value"):
-                sheets_with_anomaly_value = summary[
-                    "sheets_with_anomaly_value"
-                ]
+            if summary.get("anomaly_detected_sheets"):
+                anomaly_detected_sheets = summary["anomaly_detected_sheets"]
                 day_summary.append(
-                    "Anomaly value detected :" f" {sheets_with_anomaly_value}"
+                    "Anomaly value detected :" f" {anomaly_detected_sheets}"
                 )
 
             if summary.get("merge_failed_sheets"):
