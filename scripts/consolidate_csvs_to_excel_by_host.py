@@ -49,7 +49,7 @@ def main() -> None:
                 for csv_path in csv_paths_for_each_date.values()
             ):
                 logger.warning(
-                    f"No CSV files found for host '{target_fullname}'."
+                    f"No CSV files found for host {target_fullname}."
                 )
                 continue
 
@@ -58,7 +58,7 @@ def main() -> None:
             )
             FileUtility.create_directory(excel_path)
 
-            logger.info(f"Starting to create '{excel_path}'.")
+            logger.info(f"Starting to create {excel_path}.")
             with pd.ExcelWriter(
                 excel_path, engine="openpyxl", mode="w"
             ) as writer:
@@ -75,14 +75,14 @@ def main() -> None:
                 )
                 excel_analyzer.reorder_sheets_by_color()
 
-                logger.info(f"Saving '{excel_path}'.")
+                logger.info(f"Saving {excel_path}.")
 
             processing_summary.save_daily_processing_results(
                 target_fullname,
                 csv_consolidator,
                 excel_analyzer,
             )
-            logger.info(f"Finished creating '{excel_path}'.")
+            logger.info(f"Finished creating {excel_path}.")
 
         processing_summary.log_daily_summaries()
         logger.info("Process completed.")
