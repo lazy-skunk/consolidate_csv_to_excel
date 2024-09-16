@@ -9,8 +9,8 @@ class ProcessingSummary:
     _logger = CustomLogger.get_logger()
 
     def __init__(self) -> None:
-        self.daily_summaries: Dict[str, List[str]] = {}
-        self.daily_processing_results: Dict[str, Dict[str, Set[str]]] = {}
+        self._daily_summaries: Dict[str, List[str]] = {}
+        self._daily_processing_results: Dict[str, Dict[str, Set[str]]] = {}
 
     def add_missing_csv_info(
         self,
@@ -23,7 +23,7 @@ class ProcessingSummary:
             if all(
                 csv_path is None for csv_path in sub_keys_and_csv_path.values()
             ):
-                self.daily_summaries.setdefault(base_key, []).append(
+                self._daily_summaries.setdefault(base_key, []).append(
                     "No CSV files found."
                 )
             else:
@@ -33,7 +33,7 @@ class ProcessingSummary:
                     if csv_path is None
                 ]
                 if sub_keys_without_csv:
-                    self.daily_summaries.setdefault(base_key, []).append(
+                    self._daily_summaries.setdefault(base_key, []).append(
                         f"Some CSV files not found: {sub_keys_without_csv}"
                     )
 
@@ -46,7 +46,7 @@ class ProcessingSummary:
         merge_failed_info = csv_consolidator.get_merge_failed_info()
         analysis_results = excel_analyzer.get_analysis_results()
 
-        self.daily_processing_results.setdefault(
+        self._daily_processing_results.setdefault(
             dict_key,
             {
                 "merge_failed": set(),
@@ -55,20 +55,20 @@ class ProcessingSummary:
             },
         )
 
-        self.daily_processing_results[dict_key]["merge_failed"].update(
+        self._daily_processing_results[dict_key]["merge_failed"].update(
             merge_failed_info["merge_failed"]
         )
 
-        self.daily_processing_results[dict_key]["threshold_exceeded"].update(
+        self._daily_processing_results[dict_key]["threshold_exceeded"].update(
             analysis_results["threshold_exceeded"]
         )
 
-        self.daily_processing_results[dict_key]["anomaly_detected"].update(
+        self._daily_processing_results[dict_key]["anomaly_detected"].update(
             analysis_results["anomaly_detected"]
         )
 
     def _summarize_daily_processing_results(self) -> None:
-        for date, summary in self.daily_processing_results.items():
+        for date, summary in self._daily_processing_results.items():
             day_summary = []
 
             if summary.get("threshold_exceeded"):
@@ -87,19 +87,19 @@ class ProcessingSummary:
                 merge_failed = summary["merge_failed"]
                 day_summary.append(f"Merge failed sheets: {merge_failed}")
 
-            self.daily_summaries.setdefault(date, []).extend(day_summary)
+            self._daily_summaries.setdefault(date, []).extend(day_summary)
 
     def log_daily_summaries(self) -> None:
         self._logger.info("Starting to log summary.")
         self._summarize_daily_processing_results()
 
-        for key in sorted(self.daily_summaries.keys()):
+        for key in sorted(self._daily_summaries.keys()):
             self._logger.info(f"Summary for {key}:")
 
-            if not self.daily_summaries[key]:
+            if not self._daily_summaries[key]:
                 self._logger.info("No anomalies detected.")
             else:
-                for summary_item in self.daily_summaries[key]:
+                for summary_item in self._daily_summaries[key]:
                     self._logger.warning(f"{summary_item}")
 
         self._logger.info("Finished logging summary.")
