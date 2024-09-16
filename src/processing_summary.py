@@ -74,18 +74,20 @@ class ProcessingSummary:
             if summary.get("threshold_exceeded"):
                 threshold_exceeded = summary["threshold_exceeded"]
                 day_summary.append(
-                    f"Exceeded threshold detected: {threshold_exceeded}"
+                    f"Exceeded threshold detected: {sorted(threshold_exceeded)}"  # noqa E501
                 )
 
             if summary.get("anomaly_detected"):
                 anomaly_detected = summary["anomaly_detected"]
                 day_summary.append(
-                    f"Anomaly value detected: {anomaly_detected}"
+                    f"Anomaly value detected: {sorted(anomaly_detected)}"
                 )
 
             if summary.get("merge_failed"):
                 merge_failed = summary["merge_failed"]
-                day_summary.append(f"Merge failed sheets: {merge_failed}")
+                day_summary.append(
+                    f"Merge failed sheets: {sorted(merge_failed)}"
+                )
 
             self._daily_summaries.setdefault(date, []).extend(day_summary)
 
